@@ -36,6 +36,7 @@ export default function BenchmarkProject({ id }: { id: string }) {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [scope, setScope] = useState<string>('all');
+  const [repeats, setRepeats] = useState<1 | 2 | 3>(1);
   const [manual, setManual] = useState({ runId: '', questionId: '', answer: '' });
   const [draftQuestions, setDraftQuestions] = useState<{ text: string; intent: Intent }[] | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -137,13 +138,14 @@ export default function BenchmarkProject({ id }: { id: string }) {
   const startRun = async (mode: 'auto' | 'manual') => {
     const payload: Record<string, unknown> = { mode };
     if (mode === 'auto' && selectedEndpoints.length > 0) payload.endpoints = selectedEndpoints;
+    if (mode === 'auto' && repeats > 1) payload.repeats = repeats;
     const endpointCount = selectedEndpoints.length;
     await post(
       `/api/benchmark/projects/${id}/runs`,
       payload,
       mode === 'auto'
         ? endpointCount > 1
-          ? `并行运行已完成（${endpointCount} 个端点），可在下方「跨端点对比」查看一致性矩阵。`
+          ? `并行运行已完成（${endpointCount} 个端点${repeats > 1 ? ` × 重复 ${repeats} 次` : ''}），可在下方「跨端点对比」查看一致性矩阵。`
           : '自动运行已开始并完成，数据已刷新。'
         : '已创建手工记录批次，可在下方逐条录入答案。',
     );
@@ -280,12 +282,18 @@ export default function BenchmarkProject({ id }: { id: string }) {
 
       {/* 指标 */}
       {metrics && (
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <Metric label="记录数" value={metrics.total} />
           <Metric label="提及率" value={percent(metrics.mentionRate)} tone={metrics.mentionRate > 0.5 ? 'good' : 'warn'} />
           <Metric label="引用率" value={percent(metrics.citationRate)} tone={metrics.citationRate > 0.3 ? 'good' : 'warn'} />
           <Metric label="来源份额" value={percent(metrics.shareOfVoice)} />
           <Metric label="平均出现位置" value={metrics.averagePosition ?? '—'} unit={metrics.averagePosition ? '句' : ''} />
+          <Metric
+            label="重复稳定性"
+            value={metrics.stability === null ? '—' : percent(metrics.stability)}
+            unit={metrics.repeatCount > 1 ? `${metrics.repeatCount}次` : ''}
+            tone={metrics.stability === null ? 'default' : metrics.stability >= 0.8 ? 'good' : 'warn'}
+          />
         </div>
       )}
 
@@ -500,6 +508,30 @@ export default function BenchmarkProject({ id }: { id: string }) {
                 </ul>
               </div>
             )}
+
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="workbench-label">每题重复</span>
+              {([1, 2, 3] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRepeats(value)}
+                  className={`rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
+                    repeats === value
+                      ? 'border-brand-400 bg-brand-400/20 text-white'
+                      : 'border-white/15 text-white/50 hover:text-white'
+                  }`}
+                  title={value === 1 ? '单次观测（无法判断稳定性）' : `同一问题观测 ${value} 次`}
+                >
+                  {value}×
+                </button>
+              ))}
+              {repeats > 1 && (
+                <span className="font-mono text-[9px] text-white/30">
+                  调用数 ×{repeats}
+                </span>
+              )}
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <button

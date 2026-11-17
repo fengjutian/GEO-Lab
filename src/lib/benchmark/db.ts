@@ -100,6 +100,8 @@ function migrate(db: DatabaseSync) {
   ensureColumn(db, 'runs', 'batch_id', 'TEXT');
   ensureColumn(db, 'runs', 'endpoint_id', 'TEXT');
   ensureColumn(db, 'runs', 'endpoint_name', 'TEXT');
+  // 重复观测：同一问题的第 n 次记录
+  ensureColumn(db, 'observations', 'repeat_index', 'INTEGER NOT NULL DEFAULT 1');
   db.exec('CREATE INDEX IF NOT EXISTS idx_runs_batch ON runs(batch_id)');
 }
 
@@ -274,7 +276,8 @@ function toRun(row: RunRow): Run {
 export function listRuns(projectId: string): Run[] {
   const db = getDb();
   const rows = db
-    .prepare('SELECT * FROM runs WHERE project_id = ? ORDER BY started_at DESC')
+    // 同一秒内创建的多条运行按插入顺序倒序，保证“最新运行”稳定可预期
+    .prepare('SELECT * FROM runs WHERE project_id = ? ORDER BY started_at DESC, rowid DESC')
     .all(projectId) as RunRow[];
   return rows.map(toRun);
 }
@@ -343,6 +346,7 @@ type ObservationRow = {
   brand_position: number | null;
   competitor_mentions: string;
   mode: string;
+  repeat_index: number;
   created_at: string;
 };
 
@@ -359,6 +363,7 @@ function toObservation(row: ObservationRow): Observation {
     brandPosition: row.brand_position,
     competitorMentions: JSON.parse(row.competitor_mentions) as Record<string, boolean>,
     mode: row.mode as 'auto' | 'manual',
+    repeatIndex: row.repeat_index ?? 1,
     createdAt: row.created_at,
   };
 }
@@ -374,13 +379,14 @@ export function addObservation(input: {
   brandPosition?: number | null;
   competitorMentions?: Record<string, boolean>;
   mode: 'auto' | 'manual';
+  repeatIndex?: number;
 }): Observation {
   const db = getDb();
   const id = randomUUID();
   db.prepare(
     `INSERT INTO observations
-      (id, run_id, project_id, question_id, question_text, answer, citations, brand_mentioned, brand_position, competitor_mentions, mode, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, run_id, project_id, question_id, question_text, answer, citations, brand_mentioned, brand_position, competitor_mentions, mode, repeat_index, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.runId,
@@ -393,6 +399,7 @@ export function addObservation(input: {
     input.brandPosition ?? null,
     JSON.stringify(input.competitorMentions ?? {}),
     input.mode,
+    Math.max(1, input.repeatIndex ?? 1),
     now(),
   );
   const row = db.prepare('SELECT * FROM observations WHERE id = ?').get(id) as ObservationRow;

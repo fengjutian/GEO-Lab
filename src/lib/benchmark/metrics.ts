@@ -93,12 +93,37 @@ export function computeMetrics(project: Project, observations: Observation[], qu
     }
   }
 
+  // 重复观测稳定性：同一运行内、同一问题多次观测时，主导结果占比的平均值。
+  // 必须以 runId + questionId 分组：不同端点的观测属于不同条件，混在一起会把端点差异
+  // 误读成“抖动”。1 次观测无法判断稳定，返回 null 而不是伪装成 100%。
+  const byQuestion = new Map<string, Observation[]>();
+  for (const observation of observations) {
+    const key = `${observation.runId}:${observation.questionId}`;
+    const list = byQuestion.get(key) ?? [];
+    list.push(observation);
+    byQuestion.set(key, list);
+  }
+  let stabilitySum = 0;
+  let repeatedGroups = 0;
+  let repeatCount = 1;
+  for (const list of byQuestion.values()) {
+    repeatCount = Math.max(repeatCount, list.length);
+    if (list.length < 2) continue;
+    const mentionedInGroup = list.filter((observation) => observation.brandMentioned).length;
+    const dominant = Math.max(mentionedInGroup, list.length - mentionedInGroup);
+    stabilitySum += dominant / list.length;
+    repeatedGroups += 1;
+  }
+  const stability = repeatedGroups > 0 ? stabilitySum / repeatedGroups : null;
+
   return {
     total,
     mentionRate: total ? mentioned.length / total : 0,
     citationRate: total ? cited.length / total : 0,
     shareOfVoice,
     averagePosition,
+    stability,
+    repeatCount,
     competitorRates: [...competitorCounts.entries()]
       .map(([name, count]) => ({ name, rate: total ? count / total : 0 }))
       .sort((a, b) => b.rate - a.rate),

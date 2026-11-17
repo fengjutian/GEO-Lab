@@ -345,6 +345,59 @@ const badEndpoint = await api(`/api/benchmark/projects/${multiId}/runs`, {
 });
 check('不存在的端点被拒绝（400）', badEndpoint.status === 400);
 
+/* 10.5 重复观测与稳定性 */
+console.log('\n10.5 重复观测与稳定性');
+const flaky = await api('/api/benchmark/endpoints', {
+  method: 'POST',
+  body: JSON.stringify({
+    name: `Mock Flaky ${Date.now()}`,
+    baseUrl: 'http://127.0.0.1:4399/v1',
+    model: 'mock-flaky',
+    apiKeyEnv: '',
+  }),
+});
+const flakyId = flaky.body?.endpoint?.id;
+check('创建抖动端点', flaky.status === 201, `status=${flaky.status}`);
+
+const repeatRun = await api(`/api/benchmark/projects/${multiId}/runs`, {
+  method: 'POST',
+  body: JSON.stringify({ mode: 'auto', endpoints: [flakyId], limit: 2, repeats: 2 }),
+});
+check('重复运行返回 201', repeatRun.status === 201, `status=${repeatRun.status} ${repeatRun.body?.error ?? ''}`);
+check('响应回显 repeats=2', repeatRun.body?.repeats === 2);
+check('2 题 × 2 次 = 4 次调用', repeatRun.body?.success === 4, `success=${repeatRun.body?.success}`);
+
+const repeatDetail = await api(`/api/benchmark/projects/${multiId}`);
+const repeatRunIds = (repeatDetail.body?.runs ?? [])
+  .filter((run) => run.batchId === repeatRun.body?.batchId)
+  .map((run) => run.id);
+const repeatObs = (repeatDetail.body?.observations ?? []).filter((observation) =>
+  repeatRunIds.includes(observation.runId),
+);
+check('落库 4 条记录', repeatObs.length === 4, `actual=${repeatObs.length}`);
+check(
+  '记录带 repeatIndex 1 和 2',
+  repeatObs.some((observation) => observation.repeatIndex === 1) &&
+    repeatObs.some((observation) => observation.repeatIndex === 2),
+);
+
+const repeatMetrics = repeatDetail.body?.latest?.metrics;
+check('最新运行稳定率为 0.5（抖动样本）', Math.abs((repeatMetrics?.stability ?? 0) - 0.5) < 0.001, `stability=${repeatMetrics?.stability}`);
+check('repeatCount 记录为 2', repeatMetrics?.repeatCount === 2, `repeatCount=${repeatMetrics?.repeatCount}`);
+check('抖动端点提及率为 0.5', Math.abs((repeatMetrics?.mentionRate ?? 0) - 0.5) < 0.001, `rate=${repeatMetrics?.mentionRate}`);
+
+const repeatCsv = await fetch(`${base}/api/benchmark/projects/${multiId}/export?format=csv`, {
+  headers: authHeaders(),
+});
+const repeatCsvText = await repeatCsv.text();
+check('CSV 含 repeat_index 列', repeatCsvText.includes('repeat_index'));
+
+const clamp = await api(`/api/benchmark/projects/${multiId}/runs`, {
+  method: 'POST',
+  body: JSON.stringify({ mode: 'auto', endpoints: [flakyId], limit: 1, repeats: 99 }),
+});
+check('repeats 被夹到上限 3', clamp.body?.repeats === 3, `repeats=${clamp.body?.repeats}`);
+
 /* 11. 浏览器采集（书签） */
 console.log('\n11. 浏览器采集');
 const captureToken = process.env.GEO_TEST_CAPTURE_TOKEN ?? 'test-capture-token';
@@ -396,7 +449,7 @@ check(
 
 /* 12. 清理 */
 console.log('\n12. 清理');
-for (const endpointId of [idA, idB]) {
+for (const endpointId of [idA, idB, flakyId]) {
   const removed = await api(`/api/benchmark/endpoints/${endpointId}`, { method: 'DELETE' });
   check('删除测试端点', removed.status === 200);
 }

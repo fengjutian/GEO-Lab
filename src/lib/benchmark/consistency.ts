@@ -15,6 +15,10 @@ export type MatrixCell = {
   endpointId: string | null;
   endpointName: string;
   model: string;
+  /** 多次观测中“提及品牌”的次数 */
+  mentionCount: number;
+  repeatCount: number;
+  /** 多数表决定义：提及次数 ≥ 一半 */
   mentioned: boolean;
   position: number | null;
   citationCount: number;
@@ -42,6 +46,8 @@ export type EndpointColumn = {
   mentionRate: number;
   citationRate: number;
   uniqueDomains: number;
+  /** 该端点内部重复观测的一致率；未重复时为 null */
+  stability: number | null;
   note?: string;
 };
 
@@ -113,6 +119,23 @@ export function consistencyReport(
       for (const citation of observation.citations) domains.add(domainOf(citation));
     }
     domainByEndpoint.set(run.id, domains);
+
+    // 端点内部稳定性：同一问题多次观测的主导结果占比
+    const perQuestion = new Map<string, Observation[]>();
+    for (const observation of scoped) {
+      const list = perQuestion.get(observation.questionId) ?? [];
+      list.push(observation);
+      perQuestion.set(observation.questionId, list);
+    }
+    let stabilitySum = 0;
+    let repeatedGroups = 0;
+    for (const list of perQuestion.values()) {
+      if (list.length < 2) continue;
+      const inGroup = list.filter((item) => item.brandMentioned).length;
+      stabilitySum += Math.max(inGroup, list.length - inGroup) / list.length;
+      repeatedGroups += 1;
+    }
+
     return {
       runId: run.id,
       endpointId: run.endpointId,
@@ -124,24 +147,32 @@ export function consistencyReport(
       mentionRate: scoped.length ? mentioned.length / scoped.length : 0,
       citationRate: scoped.length ? cited.length / scoped.length : 0,
       uniqueDomains: domains.size,
+      stability: repeatedGroups > 0 ? stabilitySum / repeatedGroups : null,
       note: run.note,
     };
   });
 
   const allRows: MatrixRow[] = project.questions.map((question) => {
     const cells: MatrixCell[] = batchRuns.map((run) => {
-      const observation = observations.find(
+      const scoped = observations.filter(
         (item) => item.runId === run.id && item.questionId === question.id,
       );
+      const mentionCount = scoped.filter((item) => item.brandMentioned).length;
+      const repeatCount = scoped.length;
+      const firstCitation = scoped.find((item) => item.citations.length > 0);
+      const firstMention = scoped.find((item) => item.brandMentioned && item.brandPosition);
       return {
         runId: run.id,
         endpointId: run.endpointId,
         endpointName: run.endpointName ?? run.provider,
         model: run.model,
-        mentioned: observation?.brandMentioned ?? false,
-        position: observation?.brandPosition ?? null,
-        citationCount: observation?.citations.length ?? 0,
-        citations: observation?.citations ?? [],
+        mentionCount,
+        repeatCount,
+        // 多次观测取多数，平票算提及（避免 50/50 被读成“完全没提”）
+        mentioned: repeatCount > 0 && mentionCount * 2 >= repeatCount,
+        position: firstMention?.brandPosition ?? null,
+        citationCount: firstCitation?.citations.length ?? 0,
+        citations: firstCitation?.citations ?? [],
       };
     });
     const answered = cells.filter((cell) => cell.citationCount > 0 || cell.mentioned);

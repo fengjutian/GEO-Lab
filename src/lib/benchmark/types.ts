@@ -77,6 +77,8 @@ export type Observation = {
   brandPosition: number | null;
   competitorMentions: Record<string, boolean>;
   mode: 'auto' | 'manual';
+  /** 同一问题的第几次观测（1 起）；>1 表示做了重复观测 */
+  repeatIndex: number;
   createdAt: string;
 };
 
@@ -86,6 +88,9 @@ export type Metrics = {
   citationRate: number;
   shareOfVoice: number;
   averagePosition: number | null;
+  /** 同一问题多次观测的一致率均值；没有重复观测时为 null */
+  stability: number | null;
+  repeatCount: number;
   competitorRates: { name: string; rate: number }[];
   byIntent: { intent: Intent; total: number; mentionRate: number }[];
   citationDomains: { domain: string; count: number }[];

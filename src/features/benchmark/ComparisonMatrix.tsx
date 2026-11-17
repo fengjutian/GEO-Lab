@@ -108,6 +108,7 @@ export default function ComparisonMatrix({
                   <span>提及 {percent(endpoint.mentionRate)}</span>
                   <span>引用 {percent(endpoint.citationRate)}</span>
                   <span>{endpoint.uniqueDomains} 个来源</span>
+                  {endpoint.stability !== null && <span>稳定 {percent(endpoint.stability)}</span>}
                 </div>
               </div>
             ))}
@@ -145,12 +146,19 @@ export default function ComparisonMatrix({
                           }`}
                           title={
                             cell.mentioned
-                              ? `提及${cell.position ? `（第 ${cell.position} 句）` : ''} · ${cell.citationCount} 个来源`
-                              : `未提及 · ${cell.citationCount} 个来源`
+                              ? `提及 ${cell.mentionCount}/${cell.repeatCount} 次${cell.position ? `，首次在第 ${cell.position} 句` : ''} · ${cell.citationCount} 个来源`
+                              : `提及 ${cell.mentionCount}/${cell.repeatCount} 次 · ${cell.citationCount} 个来源`
                           }
                         >
                           {cell.mentioned ? '●' : '○'}
-                          {cell.citationCount > 0 && <span className="opacity-60">{cell.citationCount}</span>}
+                          {cell.repeatCount > 1 && (
+                            <span className="opacity-70">
+                              {cell.mentionCount}/{cell.repeatCount}
+                            </span>
+                          )}
+                          {cell.repeatCount === 1 && cell.citationCount > 0 && (
+                            <span className="opacity-60">{cell.citationCount}</span>
+                          )}
                         </span>
                       </td>
                     ))}

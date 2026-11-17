@@ -11,6 +11,7 @@
 import { createServer } from 'node:http';
 
 const port = Number(process.argv[2] ?? 4399);
+let flakyCalls = 0;
 
 const server = createServer((request, response) => {
   if (request.method !== 'POST' || !request.url?.endsWith('/chat/completions')) {
@@ -37,7 +38,14 @@ const server = createServer((request, response) => {
     const question = payload.messages?.find((message) => message.role === 'user')?.content ?? '';
     let answer;
 
-    if (model.includes('silent')) {
+    if (model.includes('flaky')) {
+      // 交替返回“提及 / 不提及”，用来验证重复观测的稳定性指标
+      flakyCalls += 1;
+      answer =
+        flakyCalls % 2 === 1
+          ? 'GEO Lab 是一个研究生成式引擎优化的平台。来源：https://geolab.dev/'
+          : '这类问题建议先确认术语定义，再参考公开文档与行业实践。来源：https://example.org/guide';
+    } else if (model.includes('silent')) {
       // 不能回显问题：问题里可能包含品牌名，会让“提及”判断失真
       answer = '这类问题建议先确认术语定义，再参考公开文档与行业实践。来源：https://example.org/guide';
     } else if (model.includes('cited')) {

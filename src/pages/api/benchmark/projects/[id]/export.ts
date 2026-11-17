@@ -40,6 +40,8 @@ export const GET: APIRoute = ({ params, url }) => {
       `| 引用率 | ${percent(metrics.citationRate)} |`,
       `| 来源份额 | ${percent(metrics.shareOfVoice)} |`,
       `| 平均出现位置 | ${metrics.averagePosition ?? '—'} |`,
+      `| 重复观测稳定性 | ${metrics.stability === null ? '未做重复观测' : percent(metrics.stability)} |`,
+      `| 每题观测次数 | ${metrics.repeatCount} |`,
       '',
       '## 按意图分层',
       '',
@@ -86,6 +88,7 @@ export const GET: APIRoute = ({ params, url }) => {
   const header = [
     'question_id',
     'question',
+    'repeat_index',
     'brand_mentioned',
     'brand_position',
     'competitors',
@@ -99,6 +102,7 @@ export const GET: APIRoute = ({ params, url }) => {
     [
       observation.questionId,
       observation.questionText,
+      observation.repeatIndex,
       observation.brandMentioned ? '1' : '0',
       observation.brandPosition ?? '',
       Object.entries(observation.competitorMentions)
