@@ -1,0 +1,61 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import PageHeader from '@/components/common/PageHeader.astro';
+import KnowledgeGraph from '@/features/knowledge-graph/KnowledgeGraph';
+import { breadcrumbSchema, articleSchema } from '@/lib/schema/jsonld';
+
+const schemas = [
+  articleSchema({
+    title: 'GEO 技术知识图谱',
+    description: '交互式浏览 GEO、SEO、RAG、Embedding、引用与知识图谱之间的依赖关系。',
+    url: '/knowledge/graph/',
+    published: new Date('2026-11-01'),
+  }),
+  breadcrumbSchema([
+    { name: '首页', url: '/' },
+    { name: '知识库', url: '/knowledge/' },
+    { name: '知识图谱', url: '/knowledge/graph/' },
+  ]),
+];
+---
+
+<MainLayout
+  title="GEO 技术知识图谱"
+  description="以交互图谱展示 GEO、SEO、AI 搜索、RAG、Embedding、Chunking、实体、知识图谱与引用之间的关系，每个节点可跳转到对应技术文章。"
+  canonical="/knowledge/graph/"
+  schemas={schemas}
+>
+  <PageHeader
+    eyebrow="Knowledge Graph"
+    title="GEO 技术知识图谱"
+    titleEn="How the pieces depend on each other."
+    description="18 个节点、20 条关系，描述 GEO 技术栈里“谁服务于谁”。点击节点可查看概念说明、相邻节点与对应文章。"
+    crumb={[{ name: '知识库', href: '/knowledge/' }, { name: '知识图谱', href: '/knowledge/graph/' }]}
+  />
+
+  <div class="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+    <KnowledgeGraph client:load />
+
+    <section class="prose mt-12">
+      <h2>这张图想说明什么</h2>
+      <p>
+        GEO 不是一堆并列的技巧，而是一条有方向的链路：查询理解决定召回什么，召回依赖索引与切分，索引依赖嵌入，嵌入依赖内容如何被表达；召回之后是重排与上下文装配，最后才轮到生成与引用。任何一环缺失，后面的优化都没有意义。
+      </p>
+      <p>
+        这也是为什么只做“结构化数据”或只做“llms.txt”不会有效果：如果内容本身没有被召回，后续环节根本不会看到它。
+      </p>
+
+      <h2>怎么用这张图</h2>
+      <ul>
+        <li>从 <strong>GEO</strong> 出发，沿着边找到你当前最薄弱的环节。</li>
+        <li>点击节点查看一句话定义，再跳转到对应的技术文章深入阅读。</li>
+        <li>用分类过滤只看「检索」或「可信度」，快速定位一个层面。</li>
+      </ul>
+
+      <h2>边界</h2>
+      <p>
+        这是 GEO Lab 基于公开资料整理的技术依赖关系，不是任何搜索引擎或模型厂商的官方架构。边的方向表示链路中的先后与服务关系，不代表统计意义上的因果强度。图中没有标注权重，因为目前不存在可公开核验的权重数据。
+      </p>
+    </section>
+  </div>
+</MainLayout>
