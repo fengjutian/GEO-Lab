@@ -225,6 +225,7 @@ export default function BenchmarkProject({ id }: { id: string }) {
 
   const { project, runs, observations } = data;
   const questions = draftQuestions ?? project.questions;
+  const runNames = new Map(runs.map((run) => [run.id, run.endpointName ?? run.provider]));
 
   return (
     <WorkbenchShell>
@@ -406,6 +407,9 @@ export default function BenchmarkProject({ id }: { id: string }) {
                           {observation.brandPosition && <span>第 {observation.brandPosition} 句</span>}
                           <span>{observation.citations.length} 个来源</span>
                           <span>{observation.mode === 'auto' ? '自动' : '手工'}</span>
+                          {runNames.get(observation.runId) && (
+                            <span className="text-white/25">{runNames.get(observation.runId)}</span>
+                          )}
                         </span>
                       </span>
                       <span className="shrink-0 font-mono text-[9px] text-white/25">

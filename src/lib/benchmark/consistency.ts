@@ -128,7 +128,7 @@ export function consistencyReport(
     };
   });
 
-  const rows: MatrixRow[] = project.questions.map((question) => {
+  const allRows: MatrixRow[] = project.questions.map((question) => {
     const cells: MatrixCell[] = batchRuns.map((run) => {
       const observation = observations.find(
         (item) => item.runId === run.id && item.questionId === question.id,
@@ -162,6 +162,9 @@ export function consistencyReport(
       agreement,
     };
   });
+
+  // 只保留本批真正跑过的问题：未运行的问题会显示成全未提及，容易误读
+  const rows = allRows.filter((row) => row.total > 0);
 
   const pairwise: ConsistencyReport['pairwise'] = [];
   for (let i = 0; i < batchRuns.length; i += 1) {

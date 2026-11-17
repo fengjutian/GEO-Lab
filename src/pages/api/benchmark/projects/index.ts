@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createProject, listProjects, listRuns } from '@/lib/benchmark/db';
+import { createProject, getProject, listProjects, listRuns } from '@/lib/benchmark/db';
 import { asString, asStringArray, badRequest, json, readJson } from '@/lib/benchmark/http';
 import { seedDemoProject } from '@/lib/benchmark/demo';
 import { defaultQuestions } from '@/lib/benchmark/questions';

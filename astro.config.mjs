@@ -24,6 +24,13 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      watch: {
+        // 本地数据库、截图与浏览器临时目录不该进入文件监听：
+        // 它们常被其它进程占用，会让 dev server 因 EBUSY 直接崩掉。
+        ignored: ['**/.shots/**', '**/data/**', '**/*.log'],
+      },
+    },
     ssr: {
       // node:sqlite 是运行时内置模块，不能被 Vite 打包
       external: ['node:sqlite'],
