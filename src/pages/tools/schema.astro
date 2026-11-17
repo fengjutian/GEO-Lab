@@ -1,0 +1,33 @@
+---
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import SchemaGenerator from '@/features/schema-generator/SchemaGenerator';
+import { findTool } from '@/lib/tools/registry';
+
+const tool = findTool('schema')!;
+---
+
+<ToolLayout
+  tool={tool}
+  reading={[
+    '先看「校验提示」而不是输出。提示里排除的是最常见的实体冲突来源：错误日期、相对 URL、空作者、无效 sameAs。',
+    'Article 的 author 建议指向真人，publisher 指向组织。本站的 Person 与 Organization 在本站统一声明，不逐页重复。',
+    'FAQPage 不要为了标记而造问题。只有当页面上真的有对应问答内容时，才应该标记，否则属于误导性结构化数据。',
+    '复制输出后，用官方富媒体结果测试工具校验一次。生成器只保证语法合法，不保证符合某个搜索引擎的具体要求。',
+  ]}
+  method={[
+    {
+      title: '结构化数据到底影响什么',
+      body: '它把页面中已有的信息显式化：谁是作者、何时发布、属于哪个组织、问答是什么。这让解析器不必猜测。它的作用是减少歧义，而不是提升权重。Google 的公开文档也明确表示，结构化数据不是进入 AI 搜索结果的必要条件。',
+    },
+    {
+      title: '为什么强调“写错比不写更糟”',
+      body: '当 JSON-LD 与页面正文矛盾时（例如标记了并不存在的作者，或日期与页面显示不一致），系统会降低对该页面数据质量的判断。更常见的伤害是实体冲突：同一个组织在不同页面用了不同的 name 与 url，导致它们被当成不同实体。',
+    },
+    {
+      title: '本站的做法',
+      body: 'Organization 与 Person 只在站点级声明一次，通过 @id 被各页面引用；Article 引用这些 @id 而不是重复定义；所有 URL 使用绝对地址；只标记页面上真实存在的信息。这套做法换来的是可维护性：改一处，全站生效。',
+    },
+  ]}
+>
+  <SchemaGenerator client:load />
+</ToolLayout>

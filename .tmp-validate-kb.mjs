@@ -1,4 +1,4 @@
-import { parse } from 'file:///D:/github/GEO-Lab/node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js';
+﻿import { parse } from 'file:///D:/github/GEO-Lab/node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -19,11 +19,13 @@ for (const id of mine) {
   if (typeof d.title !== 'string' || d.title.length > 120) errs.push('title');
   if (typeof d.description !== 'string' || d.description.length < 20 || d.description.length > 300) errs.push('description-len');
   if (d.summary && d.summary.length > 400) errs.push('summary-len');
-  if (!(d.publishDate instanceof Date)) errs.push('publishDate-not-date');
-  if (d.updatedDate && !(d.updatedDate instanceof Date)) errs.push('updatedDate-not-date');
-  if (d.publishDate instanceof Date && d.updatedDate instanceof Date && d.updatedDate < d.publishDate) errs.push('updated-before-publish');
-  if (d.publishDate instanceof Date) {
-    const p = d.publishDate.toISOString().slice(0,7);
+  const isDate = (v) => v instanceof Date || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v));
+  if (!isDate(d.publishDate)) errs.push('publishDate-format');
+  if (d.updatedDate && !isDate(d.updatedDate)) errs.push('updatedDate-format');
+  const ds = (v) => v instanceof Date ? v.toISOString().slice(0,10) : v;
+  if (d.updatedDate && ds(d.updatedDate) < ds(d.publishDate)) errs.push('updated-before-publish');
+  if (isDate(d.publishDate)) {
+    const p = ds(d.publishDate).slice(0,7);
     if (p !== '2026-09' && p !== '2026-10') errs.push('publish-month:' + p);
   }
   if (!cats.has(d.category)) errs.push('category:' + d.category);
@@ -38,3 +40,4 @@ for (const id of mine) {
   }
   console.log(id.padEnd(26), errs.length ? 'FAIL ' + errs.join(' | ') : 'OK', 'order=' + d.order, 'cat=' + d.category, 'ev=' + d.evidence, 'tags=' + d.tags.length);
 }
+
