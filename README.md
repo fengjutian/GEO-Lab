@@ -40,6 +40,14 @@ RAG 流程实验（BM25 召回 → 重排 → 上下文装配 → 抽取式引�
 
 ![移动端](docs/screenshots/home-mobile.png)
 
+可见性监测工作台（固定问题集 → 逐条记录 → 指标与引用来源）：
+
+![可见性监测工作台](docs/screenshots/benchmark-dashboard.png)
+
+项目详情（示例数据，指标、意图分层与引用域名分布）：
+
+![监测项目详情](docs/screenshots/benchmark-project.png)
+
 ## 技术栈
 
 | 层 | 选择 | 说明 |

@@ -9,6 +9,11 @@ node_modules/
 # logs
 npm-debug.log*
 pnpm-debug.log*
+server.log
+server.err.log
+
+# local monitoring database (SQLite)
+data/
 
 # environment
 .env

@@ -114,6 +114,7 @@ export default function BenchmarkDashboard() {
   return (
     <WorkbenchShell>
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-4">
         <Panel title="项目" hint={loading ? '加载中…' : `${projects.length} 个`}>
           {projects.length === 0 && !loading ? (
             <div className="rounded-lg border border-dashed border-white/15 px-4 py-8 text-center">
@@ -169,6 +170,26 @@ export default function BenchmarkDashboard() {
           {error && <p className="mt-3 text-[11px] text-rose-300">{error}</p>}
         </Panel>
 
+        <Panel title="模型端点状态">
+          {provider ? (
+            <>
+              <p className={`text-[12px] ${provider.configured ? 'text-emerald-300' : 'text-amber-300'}`}>
+                {provider.configured ? `已配置 · ${provider.model}` : '未配置'}
+              </p>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">{provider.hint}</p>
+            </>
+          ) : (
+            <p className="text-[11px] text-white/40">读取中…</p>
+          )}
+          <div className="mt-3">
+            <Note>
+              未配置模型时仍可工作：创建「手工记录」运行，把你在 ChatGPT / Perplexity 等产品里看到的答案粘贴进来，
+              指标会按同一口径计算。
+            </Note>
+          </div>
+        </Panel>
+        </div>
+
         <div className="space-y-4">
           <Panel title="新建项目">
             <form onSubmit={createProject} className="space-y-3">
@@ -220,25 +241,6 @@ export default function BenchmarkDashboard() {
                 或创建示例项目（演示数据）
               </button>
             </form>
-          </Panel>
-
-          <Panel title="模型端点状态">
-            {provider ? (
-              <>
-                <p className={`text-[12px] ${provider.configured ? 'text-emerald-300' : 'text-amber-300'}`}>
-                  {provider.configured ? `已配置 · ${provider.model}` : '未配置'}
-                </p>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">{provider.hint}</p>
-              </>
-            ) : (
-              <p className="text-[11px] text-white/40">读取中…</p>
-            )}
-            <div className="mt-3">
-              <Note>
-                未配置模型时仍可工作：创建「手工记录」运行，把你在 ChatGPT / Perplexity 等产品里看到的答案粘贴进来，
-                指标会按同一口径计算。
-              </Note>
-            </div>
           </Panel>
         </div>
       </div>

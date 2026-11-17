@@ -254,7 +254,7 @@ export default function BenchmarkProject({ id }: { id: string }) {
 
       {/* 指标 */}
       {metrics && (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <Metric label="记录数" value={metrics.total} />
           <Metric label="提及率" value={percent(metrics.mentionRate)} tone={metrics.mentionRate > 0.5 ? 'good' : 'warn'} />
           <Metric label="引用率" value={percent(metrics.citationRate)} tone={metrics.citationRate > 0.3 ? 'good' : 'warn'} />
@@ -277,7 +277,7 @@ export default function BenchmarkProject({ id }: { id: string }) {
             </option>
           ))}
         </select>
-        <span className="ml-auto text-[10px] text-white/35">
+        <span className="ml-auto hidden text-[10px] text-white/35 sm:inline">
           口径：提及率 = 提及品牌的答案数 / 记录数；引用率 = 引用含本站域名的记录数 / 记录数
         </span>
       </div>
