@@ -60,5 +60,6 @@ export const POST: APIRoute = async ({ request }) => {
     replaceQuestions(project.id, defaultQuestions({ brand, competitors }));
   }
 
-  return json({ project }, 201);
+  // 重新读取：createProject 返回的是写入问题集之前的快照
+  return json({ project: getProject(project.id) ?? project }, 201);
 };

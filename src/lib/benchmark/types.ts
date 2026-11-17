@@ -25,6 +25,29 @@ export type Intent = (typeof INTENTS)[number];
 
 export type RunStatus = 'running' | 'completed' | 'failed' | 'manual';
 
+/**
+ * 端点配置。密钥不落库：只保存环境变量名，启动时从 process.env 读取。
+ * 这样数据库可以自由备份/迁移，不会把密钥带出去。
+ */
+export type Endpoint = {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
+  /** 存放密钥的环境变量名；留空表示不需要鉴权（本地模型 / 自建网关） */
+  apiKeyEnv: string;
+  /** 额外请求体，用于搜索类 API 的参数 */
+  extraBody: Record<string, unknown>;
+  enabled: boolean;
+  createdAt: string;
+};
+
+export type EndpointStatus = Endpoint & {
+  configured: boolean;
+  /** 未配置时说明缺哪个环境变量，而不是只说“不可用” */
+  hint: string;
+};
+
 export type Run = {
   id: string;
   projectId: string;
@@ -34,6 +57,10 @@ export type Run = {
   status: RunStatus;
   startedAt: string;
   finishedAt?: string;
+  /** 同一批并行运行共享 batchId，用于跨端点对比 */
+  batchId: string | null;
+  endpointId: string | null;
+  endpointName: string | null;
   /** 失败原因或运行备注，必须如实记录 */
   note?: string;
 };

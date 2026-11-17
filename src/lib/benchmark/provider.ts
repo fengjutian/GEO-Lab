@@ -19,6 +19,8 @@ export type ProviderConfig = {
   /** 额外请求体，用于工具调用、搜索参数等供应商特定配置 */
   extraBody: Record<string, unknown>;
   timeoutMs: number;
+  /** 自建网关/本地模型允许无鉴权；默认端点仍然要求密钥 */
+  allowEmptyKey?: boolean;
 };
 
 function env(name: string): string {
@@ -69,7 +71,7 @@ export async function askModel(
   question: string,
   config = providerConfig(),
 ): Promise<{ answer: string; citations: string[]; model: string }> {
-  if (!config.apiKey) {
+  if (!config.apiKey && !config.allowEmptyKey) {
     throw new Error('未配置 GEO_LLM_API_KEY，无法自动运行。请使用手工记录模式。');
   }
 
@@ -77,12 +79,12 @@ export async function askModel(
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
 
   try {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
+
     const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${config.apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: config.model,
         temperature: 0,

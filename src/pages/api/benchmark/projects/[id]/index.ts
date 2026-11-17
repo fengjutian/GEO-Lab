@@ -7,6 +7,7 @@ import {
   updateProject,
 } from '@/lib/benchmark/db';
 import { computeMetrics } from '@/lib/benchmark/metrics';
+import { groupBatches } from '@/lib/benchmark/consistency';
 import { asString, asStringArray, badRequest, json, notFound, readJson } from '@/lib/benchmark/http';
 
 export const prerender = false;
@@ -26,6 +27,7 @@ export const GET: APIRoute = ({ params }) => {
     project,
     runs,
     observations,
+    batches: groupBatches(runs),
     metrics: computeMetrics(project, observations, project.questions),
     latest: latestRun
       ? {

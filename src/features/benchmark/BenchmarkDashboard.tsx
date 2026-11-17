@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ProviderInfo } from '@/lib/benchmark/types';
 import { Note, Panel, WorkbenchShell } from '@/features/shared/ui';
+import EndpointManager from './EndpointManager';
 
 type ProjectSummary = {
   id: string;
@@ -174,7 +175,7 @@ export default function BenchmarkDashboard() {
           {provider ? (
             <>
               <p className={`text-[12px] ${provider.configured ? 'text-emerald-300' : 'text-amber-300'}`}>
-                {provider.configured ? `已配置 · ${provider.model}` : '未配置'}
+                {provider.configured ? `默认端点已配置 · ${provider.model}` : '默认端点未配置'}
               </p>
               <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">{provider.hint}</p>
             </>
@@ -188,6 +189,8 @@ export default function BenchmarkDashboard() {
             </Note>
           </div>
         </Panel>
+
+        <EndpointManager />
         </div>
 
         <div className="space-y-4">

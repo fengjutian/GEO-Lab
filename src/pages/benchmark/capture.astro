@@ -1,0 +1,52 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/common/Breadcrumbs.astro';
+import CaptureKit from '@/features/benchmark/CaptureKit';
+
+// 纯前端页面：书签在本机生成，服务端只负责接收采集结果。
+export const prerender = true;
+---
+
+<MainLayout
+  title="浏览器采集书签"
+  description="生成一个书签小工具，在 ChatGPT、Perplexity 等 AI 产品页面一键把答案提交到 GEO Lab 可见性监测工作台，自动识别品牌提及与来源链接。"
+  canonical="/benchmark/capture/"
+  noindex
+>
+  <div class="mx-auto max-w-6xl px-5 pt-8 pb-10 sm:px-8">
+    <Breadcrumbs items={[{ name: '可见性监测', href: '/benchmark/' }, { name: '浏览器采集' }]} />
+
+    <div class="mt-6 max-w-2xl">
+      <p class="eyebrow">Capture</p>
+      <h1 class="display-title mt-2 text-3xl">浏览器采集书签</h1>
+      <p class="mt-1 font-mono text-[11px] tracking-[0.14em] text-muted uppercase">
+        Capture the answer where it appears.
+      </p>
+      <p class="lede mt-4">
+        在 AI 产品页面直接提交答案，不必再复制到工作台。书签会读取当前答案文本、匹配问题、解析品牌提及与来源链接，
+        然后写入同一个项目的记录。
+      </p>
+    </div>
+
+    <div class="mt-8">
+      <CaptureKit client:only="react" />
+    </div>
+
+    <section class="prose mt-12">
+      <h2>使用步骤</h2>
+      <ol>
+        <li>在服务端设置 <code>GEO_BENCHMARK_CAPTURE_TOKEN</code>，重启后打开本页。</li>
+        <li>填入同一个 token，选择项目与来源标注（例如 ChatGPT），把按钮拖到书签栏。</li>
+        <li>在 AI 产品里提问，然后点书签。若答案没被自动读取，先选中答案文字再点。</li>
+        <li>按提示确认问题编号。提交成功后回到项目页刷新，记录已经出现在「浏览器采集」批次里。</li>
+      </ol>
+
+      <h2>它不能做什么</h2>
+      <ul>
+        <li>不能保证抓到完整答案：不同产品的 DOM 结构会变，脚本按常见容器回退读取。</li>
+        <li>不会自动判断问题编号：答案里没有可靠的题目标识，只能给出候选并由你确认。</li>
+        <li>不代表真实检索过程：你看到的答案可能包含个性化、地区或登录状态差异，这些都需要在记录里自行说明。</li>
+      </ul>
+    </section>
+  </div>
+</MainLayout>

@@ -2,14 +2,15 @@
 /**
  * 可见性工作台端到端测试（需要先启动服务端）。
  *
- *   pnpm preview                                       # netlify dev，默认 http://localhost:8888
- *   node scripts/test-benchmark.mjs http://127.0.0.1:8888
+ *   GEO_BENCHMARK_CAPTURE_TOKEN=test-capture-token pnpm dev
+ *   GEO_TEST_CAPTURE_TOKEN=test-capture-token node scripts/test-benchmark.mjs http://127.0.0.1:4321
  *
- * 覆盖：示例项目创建、指标口径、手工记录、问题集保存、导出、自动运行降级、删除。
- * 不调用真实模型：未配置密钥时应明确返回 400 而不是静默失败。
+ * 覆盖：示例项目、指标口径、手工记录、问题集、导出、多端点并行与一致性、浏览器采集、删除。
+ * 多端点部分会自行启动 scripts/mock-llm.mjs（端口 4399），不调用真实模型。
  */
+import { spawn } from 'node:child_process';
 
-const base = (process.argv[2] ?? 'http://127.0.0.1:8888').replace(/\/$/, '');
+const base = (process.argv[2] ?? 'http://127.0.0.1:4321').replace(/\/$/, '');
 let failures = 0;
 
 function check(name, condition, detail = '') {
@@ -177,10 +178,159 @@ check('删除后详情返回 404', gone.status === 404);
 
 /* 9. 页面可访问 */
 console.log('\n9. 页面');
-for (const path of ['/benchmark/', `/benchmark/${projectId}/`]) {
+for (const path of ['/benchmark/', `/benchmark/${projectId}/`, '/benchmark/capture/']) {
   const response = await fetch(`${base}${path}`);
   check(`GET ${path} 返回 200`, response.status === 200 || response.status === 404);
 }
+
+/* 10. 多端点：配置 / 并行调度 / 一致性 */
+console.log('\n10. 多端点并行与一致性');
+
+const mock = spawn(process.execPath, ['scripts/mock-llm.mjs', '4399'], { stdio: 'ignore' });
+await new Promise((resolve) => setTimeout(resolve, 700));
+
+const multi = await api('/api/benchmark/projects', {
+  method: 'POST',
+  body: JSON.stringify({
+    name: '测试：多端点对比',
+    brand: 'GEO Lab',
+    site: 'https://geolab.dev',
+    competitors: ['Surfer'],
+  }),
+});
+const multiId = multi.body?.project?.id;
+check('创建多端点测试项目', multi.status === 201 && Boolean(multiId), `status=${multi.status}`);
+
+const endpointA = await api('/api/benchmark/endpoints', {
+  method: 'POST',
+  body: JSON.stringify({
+    name: `Mock Cited ${Date.now()}`,
+    baseUrl: 'http://127.0.0.1:4399/v1',
+    model: 'mock-cited',
+    apiKeyEnv: '',
+  }),
+});
+const endpointB = await api('/api/benchmark/endpoints', {
+  method: 'POST',
+  body: JSON.stringify({
+    name: `Mock Silent ${Date.now() + 1}`,
+    baseUrl: 'http://127.0.0.1:4399/v1',
+    model: 'mock-silent',
+    apiKeyEnv: '',
+  }),
+});
+check('创建端点 A', endpointA.status === 201, `status=${endpointA.status}`);
+check('创建端点 B', endpointB.status === 201, `status=${endpointB.status}`);
+check('无鉴权端点视为已配置', endpointA.body?.endpoint?.configured === true);
+
+const endpointList = await api('/api/benchmark/endpoints');
+check('端点列表包含两个端点', (endpointList.body?.endpoints ?? []).length >= 2);
+
+const duplicate = await api('/api/benchmark/endpoints', {
+  method: 'POST',
+  body: JSON.stringify({ name: endpointA.body?.endpoint?.name, baseUrl: 'http://127.0.0.1:4399/v1', model: 'x' }),
+});
+check('重名端点被拒绝（400）', duplicate.status === 400);
+
+const idA = endpointA.body?.endpoint?.id;
+const idB = endpointB.body?.endpoint?.id;
+
+const parallel = await api(`/api/benchmark/projects/${multiId}/runs`, {
+  method: 'POST',
+  body: JSON.stringify({ mode: 'auto', endpoints: [idA, idB], limit: 4 }),
+});
+check('并行运行返回 201', parallel.status === 201, `status=${parallel.status} ${parallel.body?.error ?? ''}`);
+check('生成一个 batchId', Boolean(parallel.body?.batchId));
+check('产生 2 个 run', (parallel.body?.runs ?? []).length === 2);
+check('两个 run 共享 batchId', (parallel.body?.runs ?? []).every((run) => run.batchId === parallel.body?.batchId));
+check(
+  'run 上记录了端点名',
+  (parallel.body?.runs ?? []).every((run) => typeof run.endpointName === 'string' && run.endpointName.length > 0),
+);
+
+const multiDetail = await api(`/api/benchmark/projects/${multiId}`);
+check('详情返回 batches', (multiDetail.body?.batches ?? []).some((batch) => batch.batchId === parallel.body?.batchId));
+const batchRuns = (multiDetail.body?.runs ?? []).filter((run) => run.batchId === parallel.body?.batchId);
+const batchObs = (multiDetail.body?.observations ?? []).filter((observation) =>
+  batchRuns.some((run) => run.id === observation.runId),
+);
+check('每端点各 4 条记录', batchObs.length === 8, `actual=${batchObs.length}`);
+const firstQuestionId = multiDetail.body?.project?.questions?.[0]?.id;
+const cells = batchObs.filter((observation) => observation.questionId === firstQuestionId);
+check('同一问题在两个端点各有一条记录', cells.length === 2, `actual=${cells.length}`);
+check(
+  '制造出了提及分歧（一真一假）',
+  cells.some((cell) => cell.brandMentioned) && cells.some((cell) => !cell.brandMentioned),
+);
+check(
+  '提及的端点解析出引用链接',
+  cells.some((cell) => cell.brandMentioned && cell.citations.length > 0),
+);
+
+const badEndpoint = await api(`/api/benchmark/projects/${multiId}/runs`, {
+  method: 'POST',
+  body: JSON.stringify({ mode: 'auto', endpoints: ['00000000-0000-0000-0000-000000000000'] }),
+});
+check('不存在的端点被拒绝（400）', badEndpoint.status === 400);
+
+/* 11. 浏览器采集（书签） */
+console.log('\n11. 浏览器采集');
+const captureToken = process.env.GEO_TEST_CAPTURE_TOKEN ?? 'test-capture-token';
+
+const match = await api('/api/benchmark/capture/match', {
+  method: 'POST',
+  body: JSON.stringify({
+    token: captureToken,
+    projectId: multiId,
+    answer: 'GEO Lab 是一个研究 GEO 的平台。来源：https://geolab.dev/about/',
+  }),
+});
+check('match 返回 200', match.status === 200, `status=${match.status} ${match.body?.error ?? ''}`);
+check('返回候选问题', (match.body?.candidates ?? []).length > 0);
+check('候选带匹配度分数', typeof match.body?.candidates?.[0]?.score === 'number');
+
+const commit = await api('/api/benchmark/capture/commit', {
+  method: 'POST',
+  body: JSON.stringify({
+    token: captureToken,
+    projectId: multiId,
+    questionId: match.body?.candidates?.[0]?.questionId,
+    answer: 'GEO Lab 是一个研究 GEO 的平台。来源：https://geolab.dev/about/',
+    endpointLabel: 'ChatGPT',
+    sourceUrl: 'https://chat.openai.com/c/abc',
+  }),
+});
+check('commit 返回 201', commit.status === 201, `status=${commit.status} ${commit.body?.error ?? ''}`);
+check('采集记录识别品牌提及', commit.body?.brandMentioned === true);
+check('采集记录解析出引用', (commit.body?.citationCount ?? 0) >= 1);
+check('采集运行标签含来源与日期', /^浏览器采集 · ChatGPT · \d{4}-\d{2}-\d{2}$/.test(commit.body?.run?.label ?? ''));
+check(
+  '采集响应包含 CORS 头',
+  commit.headers.get('access-control-allow-origin') === '*',
+);
+
+const wrongToken = await api('/api/benchmark/capture/commit', {
+  method: 'POST',
+  body: JSON.stringify({ token: 'wrong', projectId: multiId, questionId: match.body?.candidates?.[0]?.questionId, answer: '这是一段足够长的答案文本。' }),
+});
+check('错误 token 返回 401', wrongToken.status === 401);
+
+const preflight = await fetch(`${base}/api/benchmark/capture/match`, { method: 'OPTIONS' });
+check('OPTIONS 预检返回 204', preflight.status === 204);
+check(
+  '预检声明允许 POST',
+  (preflight.headers.get('access-control-allow-methods') ?? '').includes('POST'),
+);
+
+/* 12. 清理 */
+console.log('\n12. 清理');
+for (const endpointId of [idA, idB]) {
+  const removed = await api(`/api/benchmark/endpoints/${endpointId}`, { method: 'DELETE' });
+  check('删除测试端点', removed.status === 200);
+}
+const deletedMulti = await api(`/api/benchmark/projects/${multiId}`, { method: 'DELETE' });
+check('删除多端点测试项目', deletedMulti.status === 200);
+mock.kill();
 
 console.log(
   failures === 0 ? '\n全部通过。' : `\n${failures} 项失败。`,

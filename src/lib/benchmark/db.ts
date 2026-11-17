@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { Intent, Observation, Project, Question, Run, RunStatus } from './types';
+import type { Endpoint, Intent, Observation, Project, Question, Run, RunStatus } from './types';
 
 /**
  * 本地 SQLite 存储。刻意选择 node:sqlite（Node 22.5+ 内置）：
@@ -64,6 +64,17 @@ function migrate(db: DatabaseSync) {
       note TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS endpoints (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      base_url TEXT NOT NULL,
+      model TEXT NOT NULL,
+      api_key_env TEXT NOT NULL DEFAULT '',
+      extra_body TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS observations (
       id TEXT PRIMARY KEY,
       run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
@@ -84,6 +95,19 @@ function migrate(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_obs_run ON observations(run_id);
     CREATE INDEX IF NOT EXISTS idx_obs_project ON observations(project_id);
   `);
+
+  // 旧库增量迁移：对比运行需要 batch / endpoint 字段。
+  ensureColumn(db, 'runs', 'batch_id', 'TEXT');
+  ensureColumn(db, 'runs', 'endpoint_id', 'TEXT');
+  ensureColumn(db, 'runs', 'endpoint_name', 'TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_runs_batch ON runs(batch_id)');
+}
+
+function ensureColumn(db: DatabaseSync, table: string, column: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((item) => item.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 const now = () => new Date().toISOString();
@@ -225,6 +249,9 @@ type RunRow = {
   started_at: string;
   finished_at: string | null;
   note: string | null;
+  batch_id: string | null;
+  endpoint_id: string | null;
+  endpoint_name: string | null;
 };
 
 function toRun(row: RunRow): Run {
@@ -237,6 +264,9 @@ function toRun(row: RunRow): Run {
     status: row.status as RunStatus,
     startedAt: row.started_at,
     finishedAt: row.finished_at ?? undefined,
+    batchId: row.batch_id ?? null,
+    endpointId: row.endpoint_id ?? null,
+    endpointName: row.endpoint_name ?? null,
     note: row.note ?? undefined,
   };
 }
@@ -262,11 +292,16 @@ export function createRun(input: {
   model: string;
   status: RunStatus;
   note?: string;
+  batchId?: string | null;
+  endpointId?: string | null;
+  endpointName?: string | null;
 }): Run {
   const db = getDb();
   const id = randomUUID();
   db.prepare(
-    'INSERT INTO runs (id, project_id, label, provider, model, status, started_at, finished_at, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    `INSERT INTO runs
+      (id, project_id, label, provider, model, status, started_at, finished_at, note, batch_id, endpoint_id, endpoint_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.projectId,
@@ -277,6 +312,9 @@ export function createRun(input: {
     now(),
     input.status === 'running' ? null : now(),
     input.note ?? null,
+    input.batchId ?? null,
+    input.endpointId ?? null,
+    input.endpointName ?? null,
   );
   return getRun(id)!;
 }
@@ -383,4 +421,112 @@ export function deleteObservation(id: string): boolean {
 export function resetDatabase() {
   const db = getDb();
   db.exec('DELETE FROM observations; DELETE FROM runs; DELETE FROM questions; DELETE FROM projects;');
+}
+
+/* ---------- 端点配置 ---------- */
+
+type EndpointRow = {
+  id: string;
+  name: string;
+  base_url: string;
+  model: string;
+  api_key_env: string;
+  extra_body: string;
+  enabled: number;
+  created_at: string;
+};
+
+function toEndpoint(row: EndpointRow): Endpoint {
+  return {
+    id: row.id,
+    name: row.name,
+    baseUrl: row.base_url,
+    model: row.model,
+    apiKeyEnv: row.api_key_env,
+    extraBody: JSON.parse(row.extra_body) as Record<string, unknown>,
+    enabled: row.enabled === 1,
+    createdAt: row.created_at,
+  };
+}
+
+export function listEndpoints(): Endpoint[] {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT * FROM endpoints ORDER BY created_at ASC')
+    .all() as EndpointRow[];
+  return rows.map(toEndpoint);
+}
+
+export function getEndpoint(id: string): Endpoint | null {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM endpoints WHERE id = ?').get(id) as EndpointRow | undefined;
+  return row ? toEndpoint(row) : null;
+}
+
+export function findEndpointByName(name: string): Endpoint | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM endpoints WHERE name = ?')
+    .get(name) as EndpointRow | undefined;
+  return row ? toEndpoint(row) : null;
+}
+
+export function createEndpoint(input: {
+  name: string;
+  baseUrl: string;
+  model: string;
+  apiKeyEnv?: string;
+  extraBody?: Record<string, unknown>;
+  enabled?: boolean;
+}): Endpoint {
+  const db = getDb();
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO endpoints (id, name, base_url, model, api_key_env, extra_body, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    input.name,
+    input.baseUrl,
+    input.model,
+    input.apiKeyEnv ?? '',
+    JSON.stringify(input.extraBody ?? {}),
+    input.enabled === false ? 0 : 1,
+    now(),
+  );
+  return getEndpoint(id)!;
+}
+
+export function updateEndpoint(
+  id: string,
+  input: {
+    name?: string;
+    baseUrl?: string;
+    model?: string;
+    apiKeyEnv?: string;
+    extraBody?: Record<string, unknown>;
+    enabled?: boolean;
+  },
+): Endpoint | null {
+  const existing = getEndpoint(id);
+  if (!existing) return null;
+  const db = getDb();
+  db.prepare(
+    'UPDATE endpoints SET name = ?, base_url = ?, model = ?, api_key_env = ?, extra_body = ?, enabled = ? WHERE id = ?',
+  ).run(
+    input.name ?? existing.name,
+    input.baseUrl ?? existing.baseUrl,
+    input.model ?? existing.model,
+    input.apiKeyEnv ?? existing.apiKeyEnv,
+    JSON.stringify(input.extraBody ?? existing.extraBody),
+    (input.enabled ?? existing.enabled) ? 1 : 0,
+    id,
+  );
+  return getEndpoint(id);
+}
+
+export function deleteEndpoint(id: string): boolean {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM endpoints WHERE id = ?').run(id);
+  return Number(result.changes) > 0;
 }

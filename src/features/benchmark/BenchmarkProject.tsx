@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type {
+  EndpointStatus,
   Intent,
   Metrics,
   Observation,
@@ -10,11 +11,15 @@ import type {
 import { INTENTS } from '@/lib/benchmark/types';
 import { computeMetrics } from '@/lib/benchmark/metrics';
 import { Note, Panel, Metric, Bar, WorkbenchShell } from '@/features/shared/ui';
+import ComparisonMatrix from './ComparisonMatrix';
+
+type Batch = { batchId: string; label: string; createdAt: string; runCount: number };
 
 type Detail = {
   project: Project;
   runs: Run[];
   observations: Observation[];
+  batches: Batch[];
   metrics: Metrics;
   latest: { run: Run; metrics: Metrics } | null;
 };
@@ -25,6 +30,8 @@ const shortDate = (iso?: string) => (iso ? iso.slice(0, 16).replace('T', ' ') : 
 export default function BenchmarkProject({ id }: { id: string }) {
   const [data, setData] = useState<Detail | null>(null);
   const [provider, setProvider] = useState<ProviderInfo | null>(null);
+  const [endpoints, setEndpoints] = useState<EndpointStatus[]>([]);
+  const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,9 +42,10 @@ export default function BenchmarkProject({ id }: { id: string }) {
 
   const load = async (keepNotice = false) => {
     try {
-      const [detailResponse, providerResponse] = await Promise.all([
+      const [detailResponse, providerResponse, endpointResponse] = await Promise.all([
         fetch(`/api/benchmark/projects/${id}`),
         fetch('/api/benchmark/provider'),
+        fetch('/api/benchmark/endpoints'),
       ]);
       if (!detailResponse.ok) {
         const payload = (await detailResponse.json()) as { error?: string };
@@ -45,8 +53,20 @@ export default function BenchmarkProject({ id }: { id: string }) {
       }
       const detail = (await detailResponse.json()) as Detail;
       const providerPayload = (await providerResponse.json()) as { provider: ProviderInfo };
+      const endpointPayload = (await endpointResponse.json()) as { endpoints: EndpointStatus[] };
       setData(detail);
       setProvider(providerPayload.provider ?? null);
+      const usable = (endpointPayload.endpoints ?? []).filter(
+        (endpoint) => endpoint.enabled && endpoint.configured,
+      );
+      setEndpoints(endpointPayload.endpoints ?? []);
+      setSelectedEndpoints((previous) => {
+        if (previous.length > 0) {
+          const stillValid = previous.filter((endpointId) => usable.some((item) => item.id === endpointId));
+          if (stillValid.length > 0) return stillValid;
+        }
+        return usable.map((endpoint) => endpoint.id);
+      });
       if (!keepNotice) setError('');
       setManual((previous) => ({
         ...previous,
@@ -115,11 +135,16 @@ export default function BenchmarkProject({ id }: { id: string }) {
   };
 
   const startRun = async (mode: 'auto' | 'manual') => {
+    const payload: Record<string, unknown> = { mode };
+    if (mode === 'auto' && selectedEndpoints.length > 0) payload.endpoints = selectedEndpoints;
+    const endpointCount = selectedEndpoints.length;
     await post(
       `/api/benchmark/projects/${id}/runs`,
-      { mode },
+      payload,
       mode === 'auto'
-        ? '自动运行已开始并完成，数据已刷新。'
+        ? endpointCount > 1
+          ? `并行运行已完成（${endpointCount} 个端点），可在下方「跨端点对比」查看一致性矩阵。`
+          : '自动运行已开始并完成，数据已刷新。'
         : '已创建手工记录批次，可在下方逐条录入答案。',
     );
   };
@@ -427,15 +452,68 @@ export default function BenchmarkProject({ id }: { id: string }) {
         {/* 右列：运行 + 录入 + 问题集 */}
         <div className="space-y-4">
           <Panel title="运行" hint={`${runs.length} 次`}>
+            {endpoints.length > 0 && (
+              <div className="mb-3">
+                <p className="workbench-label">并行端点</p>
+                <ul className="mt-1.5 space-y-1">
+                  {endpoints.map((endpoint) => {
+                    const usable = endpoint.enabled && endpoint.configured;
+                    const checked = selectedEndpoints.includes(endpoint.id);
+                    return (
+                      <li key={endpoint.id} className="flex items-center gap-2">
+                        <input
+                          id={`ep-${endpoint.id}`}
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!usable || busy}
+                          onChange={(event) => {
+                            setSelectedEndpoints((previous) =>
+                              event.target.checked
+                                ? [...previous, endpoint.id]
+                                : previous.filter((item) => item !== endpoint.id),
+                            );
+                          }}
+                          className="size-3 accent-[var(--color-brand-400)] disabled:opacity-30"
+                        />
+                        <label
+                          htmlFor={`ep-${endpoint.id}`}
+                          className={`min-w-0 flex-1 truncate text-[11px] ${
+                            usable ? 'text-white/75' : 'text-white/30'
+                          }`}
+                          title={endpoint.hint}
+                        >
+                          {endpoint.name}
+                          <span className="ml-1 font-mono text-[9px] text-white/30">{endpoint.model}</span>
+                        </label>
+                        {!usable && (
+                          <span className="shrink-0 font-mono text-[9px] text-amber-200/60">
+                            {endpoint.enabled ? '缺密钥' : '已停用'}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => void startRun('auto')}
-                disabled={busy || !provider?.configured}
-                title={provider?.configured ? '逐条调用模型并记录' : '未配置模型端点'}
+                disabled={busy || (selectedEndpoints.length === 0 && !provider?.configured)}
+                title={
+                  selectedEndpoints.length > 1
+                    ? '同一问题集并行跑多个端点'
+                    : provider?.configured
+                      ? '逐条调用模型并记录'
+                      : '未配置模型端点'
+                }
                 className="rounded border border-brand-400/40 bg-brand-400/10 px-2.5 py-1.5 text-[11px] text-brand-100 hover:border-brand-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                自动运行
+                {selectedEndpoints.length > 1
+                  ? `并行运行 ${selectedEndpoints.length} 个端点`
+                  : '自动运行'}
               </button>
               <button
                 type="button"
@@ -446,9 +524,9 @@ export default function BenchmarkProject({ id }: { id: string }) {
                 新建手工批次
               </button>
             </div>
-            {!provider?.configured && (
+            {selectedEndpoints.length === 0 && !provider?.configured && (
               <p className="mt-2 text-[10px] leading-relaxed text-amber-200/70">
-                未配置 GEO_LLM_API_KEY：自动运行不可用，但手工记录完全可用。
+                未配置模型端点：自动运行不可用，但手工记录与书签采集完全可用。
               </p>
             )}
             <ul className="mt-3 divide-y divide-white/5">
@@ -530,6 +608,12 @@ export default function BenchmarkProject({ id }: { id: string }) {
                 保存记录
               </button>
             </form>
+            <a
+              href="/benchmark/capture/"
+              className="mt-2 block text-center text-[10px] text-brand-300/80 hover:text-white"
+            >
+              或在 AI 页面用浏览器采集书签 →
+            </a>
           </Panel>
 
           <Panel title="问题集" hint={`${questions.length} 个`}>
@@ -599,6 +683,15 @@ export default function BenchmarkProject({ id }: { id: string }) {
             </div>
           </Panel>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <ComparisonMatrix
+          project={project}
+          runs={runs}
+          observations={observations}
+          batches={data.batches ?? []}
+        />
       </div>
 
       <div className="mt-4">

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { APIRoute } from 'astro';
 import {
   addObservation,
@@ -8,11 +9,18 @@ import {
   listRuns,
 } from '@/lib/benchmark/db';
 import { askModel, providerConfig, providerInfo } from '@/lib/benchmark/provider';
+import { resolveEndpoint, endpointConfigured, defaultEndpoint } from '@/lib/benchmark/endpoints';
+import { getEndpoint } from '@/lib/benchmark/db';
 import { brandSentencePosition, detectMentions } from '@/lib/benchmark/metrics';
 import { MAX_QUESTIONS_PER_RUN } from '@/lib/benchmark/questions';
 import { badRequest, json, notFound, readJson, serverError } from '@/lib/benchmark/http';
+import type { ProviderConfig } from '@/lib/benchmark/provider';
+import type { Project, Question, Run } from '@/lib/benchmark/types';
 
 export const prerender = false;
+
+/** 一批里最多并行几个端点：控制成本与超时，超出请分两批。 */
+const MAX_ENDPOINTS_PER_BATCH = 4;
 
 export const GET: APIRoute = ({ params }) => {
   const project = getProject(params.id ?? '');
@@ -28,7 +36,20 @@ export const GET: APIRoute = ({ params }) => {
   });
 };
 
-type RunBody = { mode?: unknown; label?: unknown; limit?: unknown };
+type RunBody = {
+  mode?: unknown;
+  label?: unknown;
+  limit?: unknown;
+  endpoints?: unknown;
+};
+
+type EndpointSpec = {
+  endpointId: string | null;
+  name: string;
+  providerName: string;
+  model: string;
+  config: ProviderConfig;
+};
 
 export const POST: APIRoute = async ({ params, request }) => {
   const project = getProject(params.id ?? '');
@@ -36,14 +57,13 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const body = (await readJson<RunBody>(request)) ?? {};
   const mode = body.mode === 'manual' ? 'manual' : 'auto';
-  const info = providerInfo();
-
+  const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
   const label =
     typeof body.label === 'string' && body.label.trim()
       ? body.label.trim().slice(0, 80)
       : mode === 'auto'
-        ? `自动运行 ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`
-        : `手工记录 ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
+        ? `自动运行 ${stamp}`
+        : `手工记录 ${stamp}`;
 
   if (mode === 'manual') {
     const run = createRun({
@@ -54,40 +74,126 @@ export const POST: APIRoute = async ({ params, request }) => {
       status: 'manual',
       note: '手工记录：答案由人工粘贴，指标由系统按同一口径计算。',
     });
-    return json({ run }, 201);
-  }
-
-  if (!info.configured) {
-    return badRequest(
-      '未配置模型端点，无法自动运行。请设置 GEO_LLM_API_KEY（可选 GEO_LLM_BASE_URL / GEO_LLM_MODEL），或改用「手工记录」。',
-      { provider: info },
-    );
+    return json({ run, runs: [run] }, 201);
   }
 
   if (project.questions.length === 0) return badRequest('项目还没有问题，请先添加问题');
 
   const requestedLimit = Number(body.limit);
-  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
-    ? Math.min(Math.floor(requestedLimit), MAX_QUESTIONS_PER_RUN)
-    : Math.min(project.questions.length, MAX_QUESTIONS_PER_RUN);
+  const limit =
+    Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(Math.floor(requestedLimit), MAX_QUESTIONS_PER_RUN)
+      : Math.min(project.questions.length, MAX_QUESTIONS_PER_RUN);
   const questions = project.questions.slice(0, limit);
 
-  const config = providerConfig();
+  /* 解析端点：显式指定则并行对比，否则退回默认单一端点 */
+  const requestedIds = Array.isArray(body.endpoints)
+    ? body.endpoints.map((value) => (typeof value === 'string' ? value : '')).filter(Boolean)
+    : [];
+
+  let specs: EndpointSpec[] = [];
+  let batchId: string | null = null;
+
+  if (requestedIds.length > 0) {
+    if (requestedIds.length > MAX_ENDPOINTS_PER_BATCH) {
+      return badRequest(`一批最多并行 ${MAX_ENDPOINTS_PER_BATCH} 个端点`);
+    }
+    const missing: string[] = [];
+    const unknown: string[] = [];
+    for (const id of requestedIds) {
+      const endpoint = getEndpoint(id);
+      if (!endpoint) {
+        unknown.push(id);
+        continue;
+      }
+      if (!endpoint.enabled) continue;
+      if (!endpointConfigured(endpoint)) {
+        missing.push(`${endpoint.name}（缺少环境变量 ${endpoint.apiKeyEnv}）`);
+        continue;
+      }
+      specs.push({
+        endpointId: endpoint.id,
+        name: endpoint.name,
+        providerName: 'openai-compatible',
+        model: endpoint.model,
+        config: resolveEndpoint(endpoint),
+      });
+    }
+    if (unknown.length > 0) return badRequest('包含不存在的端点 id');
+    if (missing.length > 0) {
+      return badRequest(`以下端点缺少密钥环境变量，无法运行：${missing.join('；')}`, { missing });
+    }
+    if (specs.length === 0) return badRequest('没有可用的端点（可能都被停用了）');
+    batchId = randomUUID();
+  } else {
+    const fallback = defaultEndpoint();
+    if (!fallback.info.configured) {
+      return badRequest(
+        '未配置模型端点，无法自动运行。请设置 GEO_LLM_API_KEY（可选 GEO_LLM_BASE_URL / GEO_LLM_MODEL），或改用「手工记录」。',
+        { provider: fallback.info },
+      );
+    }
+    specs = [
+      {
+        endpointId: null,
+        name: '默认端点',
+        providerName: 'openai-compatible',
+        model: providerConfig().model,
+        config: fallback.config,
+      },
+    ];
+  }
+
+  const batchLabel = specs.length > 1 ? `${label}（${specs.length} 端点对比）` : label;
+  const startedAt = Date.now();
+
+  const results = await Promise.all(
+    specs.map((spec) => runSingleEndpoint(project, spec, questions, batchId, batchLabel)),
+  );
+
+  const runs = results.map((result) => result.run);
+  const success = results.reduce((sum, result) => sum + result.success, 0);
+  const failures = results.reduce((sum, result) => sum + result.failures.length, 0);
+
+  if (success === 0) {
+    const sample = results
+      .flatMap((result) => result.failures)
+      .slice(0, 3)
+      .join('；');
+    return serverError(
+      `本批全部请求失败（${failures} 条，耗时 ${Math.round((Date.now() - startedAt) / 1000)}s）。${sample}`,
+    );
+  }
+
+  return json({ batchId, runs, success, failures }, 201);
+};
+
+async function runSingleEndpoint(
+  project: Project,
+  spec: EndpointSpec,
+  questions: Question[],
+  batchId: string | null,
+  batchLabel: string,
+): Promise<{ run: Run; success: number; failures: string[] }> {
   const run = createRun({
     projectId: project.id,
-    label,
-    provider: 'openai-compatible',
-    model: config.model,
+    label: batchLabel,
+    provider: spec.providerName,
+    model: spec.model,
     status: 'running',
+    batchId,
+    endpointId: spec.endpointId,
+    endpointName: spec.name,
   });
 
   const failures: string[] = [];
   let success = 0;
-  let resolvedModel = config.model;
+  let resolvedModel = spec.model;
 
+  // 单端点内串行：避免同一账号触发限流；端点之间并行（外层 Promise.all）。
   for (const question of questions) {
     try {
-      const result = await askModel(question.text, config);
+      const result = await askModel(question.text, spec.config);
       resolvedModel = result.model;
       addObservation({
         runId: run.id,
@@ -109,17 +215,10 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const note =
     failures.length === 0
-      ? `自动运行完成，成功 ${success} 条。模型 ${resolvedModel}，温度 0，逐条串行请求。`
+      ? `自动运行完成，成功 ${success} 条。端点 ${spec.name}，模型 ${resolvedModel}，温度 0，逐条串行请求。`
       : `成功 ${success} 条，失败 ${failures.length} 条。失败示例：${failures.slice(0, 3).join('；')}`;
 
-  if (success === 0) {
-    finishRun(run.id, 'failed', note);
-    return serverError(`全部 ${failures.length} 条请求失败。${note}`);
-  }
-
-  finishRun(run.id, failures.length > 0 ? 'failed' : 'completed', note);
-
-  const runs = listRuns(project.id);
-  const saved = runs.find((item) => item.id === run.id)!;
-  return json({ run: saved, success, failures: failures.length }, 201);
-};
+  finishRun(run.id, success === 0 ? 'failed' : 'completed', note);
+  const saved = listRuns(project.id).find((item) => item.id === run.id) ?? run;
+  return { run: saved, success, failures };
+}
