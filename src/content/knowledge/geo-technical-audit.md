@@ -1,6 +1,6 @@
 ---
 title: "GEO 技术诊断方法论"
-description: "GEO 诊断应对应一条链路，而不是一张零散的检查表。本文按可抓取、可理解、可测量三层组织检查项，给出判定标准、常见失效点与报告结构。"
+description: "GEO 诊断应当沿链路展开，而不是罗列零散检查项。本文按可抓取、可理解、可测量三层组织检查清单，逐项给出判定标准、常见失效点与诊断报告的结构。"
 summary: "先确认机器拿得到，再确认拿到的能被正确理解，最后确认改动可以被观测。"
 publishDate: 2026-10-06
 updatedDate: 2026-11-14
@@ -93,21 +93,23 @@ canonical 需要与实际返回一致。若 A 页 canonical 指向 B，而 B 又
 
 ## 快速抓取核查
 
-```bash
-# 1. 查看 robots 规则与 sitemap 声明
-curl -s https://example.com/robots.txt
-
-# 2. 确认首页原始 HTML 中是否已有正文文本
-curl -s https://example.com/ | grep -o "<h1[^>]*>[^<]*</h1>"
-
-# 3. 检查状态码与重定向链
-curl -sIL https://example.com/knowledge/example/ | grep -E "^(HTTP|location)"
-
-# 4. 检查 canonical 与结构化数据是否存在
-curl -s https://example.com/ | grep -E "canonical|application/ld\+json"
+```yaml
+checks:
+  - id: robots
+    command: curl -s https://example.com/robots.txt
+    expect: 目标爬虫未被 Disallow，且声明了 sitemap 位置
+  - id: raw-html
+    command: curl -s https://example.com/ | grep -o "<h1[^>]*>[^<]*</h1>"
+    expect: 返回非空，说明正文在首次响应中已存在
+  - id: redirect-chain
+    command: curl -sIL https://example.com/knowledge/example/ | grep -E "^(HTTP|location)"
+    expect: 单跳以内，最终状态 200
+  - id: markup
+    command: curl -s https://example.com/ | grep -E "canonical|application/ld\\+json"
+    expect: canonical 自指，JSON-LD 块存在且语法有效
 ```
 
-这段脚本只覆盖最基础的几项，但它能在几分钟内区分"内容问题"与"抓取问题"。若第 2 步返回空，后续所有内容优化都应当暂停，先解决渲染。
+这段清单只覆盖最基础的几项，但它能在几分钟内区分"内容问题"与"抓取问题"。若 `raw-html` 一项返回空，后续所有内容优化都应当暂停，先解决渲染。
 
 ## 从检查到报告
 

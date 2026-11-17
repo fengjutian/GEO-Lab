@@ -1,6 +1,6 @@
 ---
 title: "结构化数据与 JSON-LD 的正确用法"
-description: "结构化数据解决的是机器理解问题，不是被引用的通行证。本文拆解 Article、Organization、Person、FAQPage、BreadcrumbList 的真实作用与边界，并给出 JSON-LD 的编写要点。"
+description: "结构化数据解决的是机器理解问题，而不是被引用的通行证。本文逐一拆解文章、组织、作者、问答、面包屑五类标记的真实作用与边界，并给出 JSON-LD 的编写要点与常见误用。"
 summary: "标记只能把你声明的事实说清楚，不能替你把事实变成真的，也不能保证被 AI 引用。"
 publishDate: 2026-10-09
 updatedDate: 2026-11-16

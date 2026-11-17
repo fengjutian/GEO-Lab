@@ -83,18 +83,4 @@ const cases = defineCollection({
   }),
 });
 
-const tools = defineCollection({
-  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/tools' }),
-  schema: z.object({
-    ...base,
-    category: z.enum(['诊断', '分析', '生成', '实验室']),
-    /** 工具页面路由，例如 /tools/site-audit/ */
-    route: z.string(),
-    runtime: z.enum(['browser', 'server']).default('browser'),
-    status: z.enum(['stable', 'beta', 'planned']).default('stable'),
-    /** 该工具不能做什么，写在最显眼的位置 */
-    limitations: z.array(z.string()).default([]),
-  }),
-});
-
-export const collections = { knowledge, research, cases, tools };
+export const collections = { knowledge, research, cases };

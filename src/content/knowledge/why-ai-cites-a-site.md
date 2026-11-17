@@ -44,6 +44,20 @@ RAG 的基本结构可以解释为什么引用与召回强绑定。检索器先�
 
 两路信号对页面的要求不同。词汇匹配要求标题、首段、小标题覆盖问题中的关键术语，包括同义说法与用户实际使用的口语表达。向量匹配要求段落有清晰的主题与足够的语义密度，一段话里混三件事，向量会被平均成一个模糊的点。
 
+整条链路可以用几行伪代码概括，其中只有中间两步与站方有关：
+
+```python
+def answer_with_citations(query, corpus):
+    q = rewrite(query)                      # 查询改写：补实体、补限定语
+    docs = retrieve(corpus, q, k=20)        # 词汇 + 向量双路召回
+    chunks = rerank(split(docs), q, n=8)    # 切块并按相关性排序
+    answer = generate(q, chunks)            # 模型基于片段组织答案
+    citations = attribute(answer, chunks)   # 句子级归因，可能出错
+    return answer, citations
+```
+
+`attribute` 一步是幻觉引用的主要来源：它是后处理匹配，而不是对来源真实性的验证。
+
 这带来一个反直觉的结论：把关键词写满全篇，未必提高召回，反而可能降低段落级向量的区分度。更有效的做法是让每个小节围绕一个问题，标题即问题，首句即答案。
 
 ## 片段可抽取：内容要能被切出来单独使用
