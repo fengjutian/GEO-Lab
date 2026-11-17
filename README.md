@@ -100,9 +100,49 @@ scripts/check-site.mjs  构建产物与内容校验
 | `/tools/schema/` | JSON-LD 生成 + 校验提示 |
 | `/tools/content-structure/` | 内容结构评分与改进清单 |
 | `/services/` | 四个服务阶段、计价说明、需求表单（本机 mailto） |
+| `/benchmark/` | AI 可见性监测工作台（按需渲染，见下） |
 | `/about/` | 研究方法论、证据分级、技术实现 |
 | `/search/` | Pagefind 站内搜索 |
 | `/rss.xml`、`/robots.txt`、`/sitemap-index.xml` | 订阅与抓取声明 |
+
+## 可见性监测工作台（V2）
+
+`/benchmark/` 与 `/api/benchmark/*` 是站点里唯一按需渲染（Node 服务端）的部分。数据存放在本地 SQLite（`data/benchmark.db`），不经过第三方。
+
+**能做什么**
+
+- 为品牌建立固定问题集（默认 20 题，按认知 / 比较 / 决策 / 问题排查分层）
+- 自动运行：调用 OpenAI 兼容的 `/chat/completions` 逐题记录答案、品牌提及与来源链接
+- 手工记录：把 ChatGPT / Perplexity 等产品里的完整回答粘贴进来，按同一口径计算
+- 指标：提及率、引用率、来源份额、平均出现句序、意图分层、引用域名分布
+- 导出 CSV（含 BOM，Excel 可直接打开）与 Markdown 报告
+- 示例项目：没有密钥也能看到完整工作台（标记为「示例数据」，不可作为结论）
+
+**配置自动运行**
+
+```bash
+GEO_LLM_API_KEY=sk-...
+GEO_LLM_BASE_URL=https://api.openai.com/v1   # 任意兼容端点，含自建网关
+GEO_LLM_MODEL=gpt-4o-mini
+GEO_LLM_EXTRA_BODY={"temperature":0}          # 可选：供应商特定参数
+```
+
+未配置 `GEO_LLM_API_KEY` 时自动运行会返回 400 并给出提示，手工模式仍然可用。
+
+**运行方式**
+
+```bash
+pnpm build                       # 产出 dist/client（静态页）与 dist/server（按需路由）
+pnpm preview                     # = node ./dist/server/entry.mjs
+node scripts/test-benchmark.mjs http://127.0.0.1:4321   # 端到端 API 测试
+pnpm benchmark:reset             # 清空本地监测数据库（需确认）
+```
+
+**能力边界**
+
+- 自动模式只调用 chat 端点，**不包含真实网页检索**：它衡量的是“模型在参数化知识下是否提及该品牌”，属于无检索基线，不等于 AI 搜索结果中的引用情况。要测后者，请用手工记录模式，或在 `GEO_LLM_BASE_URL` 指向带检索能力的端点。
+- 没有账号体系，请部署在可信网络内或自行加反向代理鉴权。
+- 不做显著性检验。单次运行只是快照，趋势需要重复观测。
 
 ## 设计约束（写进代码里）
 
