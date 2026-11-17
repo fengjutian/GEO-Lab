@@ -22,6 +22,24 @@ pnpm verify     # build + check:site 一条命令
 
 Node ≥ 20。包管理器使用 pnpm（`pnpm-workspace.yaml` 中显式批准了 `esbuild` 与 `sharp` 的构建脚本）。
 
+## 界面预览
+
+首页（研究机构 + 科技媒体风格：白底、深绿、橙色强调）：
+
+![首页](docs/screenshots/home.png)
+
+知识图谱（自写力导向 SVG，点击节点查看概念与对应文章）：
+
+![知识图谱](docs/screenshots/knowledge-graph.png)
+
+RAG 流程实验（BM25 召回 → 重排 → 上下文装配 → 抽取式引用）：
+
+![RAG 实验](docs/screenshots/rag-playground.png)
+
+移动端（390px）：
+
+![移动端](docs/screenshots/home-mobile.png)
+
 ## 技术栈
 
 | 层 | 选择 | 说明 |
