@@ -1,0 +1,197 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import PageHeader from '@/components/common/PageHeader.astro';
+import EvidenceBadge from '@/components/common/EvidenceBadge.astro';
+import { EVIDENCE_LEVELS, SITE } from '@/lib/seo/site';
+import { breadcrumbSchema, organizationSchema, personSchema } from '@/lib/schema/jsonld';
+
+const methodRules = [
+  {
+    title: '每条结论标注证据等级',
+    body: '官方文档、同行评审论文、自有实验、技术分析、行业经验，五种来源的可信度不同。文章顶部与侧栏始终显示当前内容的最高证据等级，混合来源时按最低一级标注。',
+  },
+  {
+    title: '实验必须公开条件',
+    body: '模型名称与版本、测试时间、问题集规模、样本量、重复次数、账号与地域，都必须写进报告。缺少这些信息的结论只能算观察，不能算实验。',
+  },
+  {
+    title: '区分协议与结果',
+    body: '实验设计写成协议发布，标明“结果将另行发布”。我们不会为了填补内容空档，把一个还没跑完的实验写成既成结论。',
+  },
+  {
+    title: '保留失败记录',
+    body: '改了没效果、假设被推翻、样本不足以支持结论，这些同样发布。GEO 领域最缺的就是可核验的失败记录。',
+  },
+  {
+    title: '不承诺引用结果',
+    body: 'AI 是否引用一个页面，取决于查询、索引状态、模型版本与生成过程。任何声称能保证引用或排名的说法，都超出了现有证据能支持的范围。',
+  },
+  {
+    title: '定期复测已发布结论',
+    body: '检索系统与模型持续更新，一年前的结论可能已经失效。文章带 updatedDate，重大修订会在正文标注修订说明。',
+  },
+];
+
+const schemas = [
+  personSchema(),
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: '首页', url: '/' },
+    { name: '关于', url: '/about/' },
+  ]),
+];
+---
+
+<MainLayout
+  title="关于 GEO Lab"
+  description="GEO Lab 是生成式引擎优化实验室：研究 AI 如何发现、理解、检索与引用互联网内容，并把研究成果转化为知识体系、实验工具与企业诊断服务。公开研究方法论与证据分级标准。"
+  canonical="/about/"
+  schemas={schemas}
+>
+  <PageHeader
+    eyebrow="About"
+    title="关于 GEO Lab"
+    titleEn="Research. Optimize. Get Cited."
+    description="我们研究 AI 如何发现、理解、检索和引用互联网内容，并把研究结论变成可交互的工具与企业可以执行的诊断方法。"
+    crumb={[{ name: '关于', href: '/about/' }]}
+  />
+
+  <div class="mx-auto max-w-6xl px-5 py-12 sm:px-8">
+    <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div>
+        <section class="prose">
+          <h2>为什么做这件事</h2>
+          <p>
+            生成式搜索改变了一件事：内容不再只竞争“列表中的位置”，而是竞争“能否进入答案，以及是否被正确归因”。这个变化带来大量新问题——片段要多长才自洽？实体以什么形式声明最有效？作者信息到底影响什么？——而市面上流行的答案，多数缺少可核验的依据。
+          </p>
+          <p>
+            GEO Lab 的立场很明确：先理解机制，再谈优化。所以我们把资源投向三件事——技术文章解释检索与生成链路，实验室工具让机制可见，案例与研究记录公开方法和边界。
+          </p>
+
+          <h2>三个支柱</h2>
+        </section>
+
+        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+          <div class="rounded-xl border border-line bg-surface p-4">
+            <p class="font-mono text-[10px] tracking-[0.14em] text-brand-600 uppercase">Research</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-ink-soft">论文解读、实验协议与趋势分析，公开条件与样本。</p>
+          </div>
+          <div class="rounded-xl border border-line bg-surface p-4">
+            <p class="font-mono text-[10px] tracking-[0.14em] text-brand-600 uppercase">Technology</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-ink-soft">浏览器端工具，把抽象机制变成可以动手验证的过程。</p>
+          </div>
+          <div class="rounded-xl border border-line bg-surface p-4">
+            <p class="font-mono text-[10px] tracking-[0.14em] text-brand-600 uppercase">Practice</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-ink-soft">诊断与优化服务，按同一套方法论执行。</p>
+          </div>
+        </div>
+
+        <section id="method" class="prose mt-14 scroll-mt-24">
+          <h2>研究方法论</h2>
+          <p>
+            这六条不是宣传语，而是我们对内部写作与对外服务同时生效的约束。违反其中任意一条的结论，不允许发布。
+          </p>
+        </section>
+
+        <ol class="mt-6 divide-y divide-line border-y border-line">
+          {
+            methodRules.map((rule, index) => (
+              <li class="grid gap-2 py-5 sm:grid-cols-[40px_minmax(0,1fr)]">
+                <span class="font-mono text-[11px] text-brand-500">{String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <h3 class="text-[15px] font-semibold text-ink">{rule.title}</h3>
+                  <p class="mt-1.5 text-[13px] leading-relaxed text-muted">{rule.body}</p>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+
+        <section id="evidence" class="mt-14 scroll-mt-24">
+          <h2 class="display-title text-2xl">证据等级</h2>
+          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
+            同一个结论可能有多个来源。混用来源时，页面按最低一级标注，并在正文中逐条说明哪部分来自哪里。
+          </p>
+          <div class="mt-6 space-y-3">
+            {
+              Object.entries(EVIDENCE_LEVELS).map(([key, level]) => (
+                <div class="flex flex-col gap-2 rounded-xl border border-line bg-canvas p-4 sm:flex-row sm:items-start sm:gap-6">
+                  <div class="shrink-0">
+                    <EvidenceBadge level={key as keyof typeof EVIDENCE_LEVELS} />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="font-mono text-[10px] tracking-[0.12em] text-muted uppercase">{level.labelEn}</p>
+                    <p class="mt-1 text-[13px] leading-relaxed text-ink-soft">{level.description}</p>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        </section>
+
+        <section id="stack" class="prose mt-14 scroll-mt-24">
+          <h2>这个站点是怎么建的</h2>
+          <p>
+            本站是一个静态站点：Astro 负责路由与内容渲染，React 只用于需要交互的工具模块，Tailwind CSS 维护统一的设计语言。
+            所有工具在浏览器内运行，不需要后端，也就不存在把你的文本上传到我们服务器的可能。
+          </p>
+          <p>
+            内容是 Content Collections 管理的 Markdown，字段带类型校验：缺少作者、日期或证据等级，构建会直接失败。
+            这条工程约束比任何编辑规范都有效。
+          </p>
+        </section>
+
+        <section class="mt-14 rounded-2xl border border-brand-200 bg-brand-50 p-6">
+          <h2 class="display-title text-xl">联系我们</h2>
+          <p class="mt-2 text-sm leading-relaxed text-brand-900/75">
+            研究合作、内容纠错、工具反馈或服务咨询，都可以直接写信。纠错尤其欢迎——如果本文档里的某个结论证据不足，请指出具体条目。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-3">
+            <a href={`mailto:${SITE.organization.email}`} class="btn btn-primary">{SITE.organization.email}</a>
+            <a href="/services/" class="btn btn-ghost">企业服务</a>
+          </div>
+        </section>
+      </div>
+
+      <aside class="space-y-6">
+        <div class="rounded-xl border border-line p-5">
+          <p class="eyebrow">站点信息</p>
+          <dl class="mt-3 space-y-3 text-[12px]">
+            <div>
+              <dt class="font-mono text-[10px] text-muted uppercase">名称</dt>
+              <dd class="mt-0.5 text-ink-soft">{SITE.legalName}</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[10px] text-muted uppercase">定位</dt>
+              <dd class="mt-0.5 text-ink-soft">GEO 技术研究、实验工具与企业服务</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[10px] text-muted uppercase">语言</dt>
+              <dd class="mt-0.5 text-ink-soft">中文为主，术语保留英文</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[10px] text-muted uppercase">内容许可</dt>
+              <dd class="mt-0.5 text-ink-soft">CC BY 4.0（代码 MIT）</dd>
+            </div>
+          </dl>
+        </div>
+
+        <nav class="rounded-xl border border-line p-5" aria-label="本页目录">
+          <p class="eyebrow">本页</p>
+          <ul class="mt-3 space-y-2 text-[13px]">
+            <li><a href="#method" class="text-ink-soft hover:text-brand-700">研究方法论</a></li>
+            <li><a href="#evidence" class="text-ink-soft hover:text-brand-700">证据等级</a></li>
+            <li><a href="#stack" class="text-ink-soft hover:text-brand-700">技术实现</a></li>
+          </ul>
+        </nav>
+
+        <div class="rounded-xl border border-line bg-surface p-5">
+          <p class="eyebrow">给引用本站的人</p>
+          <p class="mt-2 text-[12px] leading-relaxed text-muted">
+            本站内容可自由引用，前提是注明来源与链接。请不要把我们标注为“分析”的结论引用为“实验证明”。
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</MainLayout>

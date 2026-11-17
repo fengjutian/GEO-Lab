@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { WorkbenchShell, Panel, Metric, Bar, Note } from '@/features/shared/ui';
 
 type Level = 'pass' | 'warn' | 'fail';
@@ -265,11 +265,13 @@ function layerScore(results: CheckResult[], layer: Layer): number {
     (sum, result) => sum + (result.level === 'pass' ? 1 : result.level === 'warn' ? 0.5 : 0),
     0,
   );
-  return Math.round((earned / scoped.length) * WEIGHTS[layer] * 2.5);
+  return Math.round((earned / scoped.length) * WEIGHTS[layer]);
 }
 
 export default function SiteAudit() {
-  const [html, setHtml] = useState('');
+  const [html, setHtml] = useState(DEMO_HTML);
+  /** DOMParser 只在浏览器存在：SSR 阶段不跑诊断，避免 hydration 不一致 */
+  const [mounted, setMounted] = useState(false);
   const [url, setUrl] = useState('');
   const [endpoint, setEndpoint] = useState('');
   const [mode, setMode] = useState<'paste' | 'remote'>('paste');
@@ -277,9 +279,11 @@ export default function SiteAudit() {
   const [remoteMeta, setRemoteMeta] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const results = useMemo(() => (html.trim() ? runAudit(html) : null), [html]);
+  useEffect(() => setMounted(true), []);
+
+  const results = useMemo(() => (mounted && html.trim() ? runAudit(html) : null), [mounted, html]);
   const overall = results
-    ? Math.min(100, Math.round((layerScore(results, 'crawl') + layerScore(results, 'understand') + layerScore(results, 'trust')) / 1))
+    ? layerScore(results, 'crawl') + layerScore(results, 'understand') + layerScore(results, 'trust')
     : 0;
 
   const fetchRemote = async () => {
@@ -354,7 +358,7 @@ export default function SiteAudit() {
               onClick={() => setHtml(DEMO_HTML)}
               className="rounded-full border border-white/15 px-3 py-1 text-[11px] text-white/60 hover:text-white"
             >
-              载入问题示例
+              重置为问题示例
             </button>
             <button
               type="button"

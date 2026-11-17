@@ -1,0 +1,24 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+---
+
+<MainLayout
+  title="页面不存在"
+  description="请求的页面不存在。回到 GEO Lab 首页，或从知识库、工具箱继续浏览。"
+  canonical="/404/"
+  noindex
+>
+  <section class="mx-auto flex max-w-3xl flex-col items-start px-5 py-24 sm:px-8">
+    <p class="font-mono text-[11px] tracking-[0.18em] text-brand-500 uppercase">Error 404</p>
+    <h1 class="display-title mt-4 text-4xl sm:text-5xl">这个页面没有被检索到</h1>
+    <p class="lede mt-4 max-w-xl">
+      地址可能已经变更，或者链接本身写错了。下面几个入口也许更接近你想找的内容。
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href="/" class="btn btn-primary">返回首页</a>
+      <a href="/knowledge/" class="btn btn-ghost">知识库</a>
+      <a href="/tools/" class="btn btn-ghost">工具箱</a>
+      <a href="/search/" class="btn btn-ghost">搜索</a>
+    </div>
+  </section>
+</MainLayout>

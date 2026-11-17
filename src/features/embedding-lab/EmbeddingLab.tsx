@@ -23,7 +23,10 @@ const PRESETS: { name: string; a: string; b: string }[] = [
 function VectorGrid({ vector, tone }: { vector: HashVector; tone: 'a' | 'b' }) {
   const max = Math.max(...Array.from(vector.values, (value) => Math.abs(value)), 0.0001);
   return (
-    <div className="grid grid-cols-16 gap-[2px]" style={{ gridTemplateColumns: 'repeat(16, minmax(0, 1fr))' }}>
+    <div
+      className="grid max-w-[360px] gap-[2px]"
+      style={{ gridTemplateColumns: 'repeat(32, minmax(0, 1fr))' }}
+    >
       {Array.from(vector.values).slice(0, 256).map((value, index) => {
         const intensity = Math.min(1, Math.abs(value) / max);
         const positive = value >= 0;

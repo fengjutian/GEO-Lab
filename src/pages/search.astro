@@ -1,0 +1,151 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import PageHeader from '@/components/common/PageHeader.astro';
+
+// Pagefind 索引在构建后生成（astro build && pagefind --site dist），
+// 因此本页不预渲染搜索结果，只提供 UI 容器。
+---
+
+<MainLayout
+  title="站内搜索"
+  description="搜索 GEO Lab 的知识库、技术研究与案例。索引由 Pagefind 在构建时生成，完全在浏览器端检索。"
+  canonical="/search/"
+  noindex
+>
+  <div data-pagefind-ignore>
+    <PageHeader
+      eyebrow="Search"
+      title="站内搜索"
+      titleEn="Search the knowledge base, research and cases."
+      description="索引在构建时生成，检索全部发生在你的浏览器里。支持中文标题与正文、分类与标签。"
+      crumb={[{ name: '搜索', href: '/search/' }]}
+    />
+
+    <div class="mx-auto max-w-3xl px-5 py-10 sm:px-8">
+      <div id="search" class="min-h-[320px]"></div>
+
+      <div id="search-fallback" class="rounded-xl border border-line bg-surface p-6">
+        <p class="text-sm font-medium text-ink">搜索索引尚未生成</p>
+        <p class="mt-2 text-[13px] leading-relaxed text-muted">
+          如果你在本地开发环境看到这段文字，说明 Pagefind 索引还不存在 ——
+          它在生产构建之后才会生成。执行 <code class="rounded bg-canvas px-1.5 py-0.5 font-mono text-[11px]">
+            pnpm build
+          </code> 后预览即可使用搜索。
+        </p>
+      </div>
+
+      <section class="mt-10">
+        <h2 class="eyebrow">也可以从这里开始</h2>
+        <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+          <li><a href="/knowledge/" class="flex items-center justify-between rounded-lg border border-line px-4 py-3 text-[13px] text-ink-soft hover:border-brand-300">知识库<span class="font-mono text-[10px] text-muted">Knowledge →</span></a></li>
+          <li><a href="/research/" class="flex items-center justify-between rounded-lg border border-line px-4 py-3 text-[13px] text-ink-soft hover:border-brand-300">技术研究<span class="font-mono text-[10px] text-muted">Research →</span></a></li>
+          <li><a href="/tools/" class="flex items-center justify-between rounded-lg border border-line px-4 py-3 text-[13px] text-ink-soft hover:border-brand-300">工具箱<span class="font-mono text-[10px] text-muted">Tools →</span></a></li>
+          <li><a href="/knowledge/graph/" class="flex items-center justify-between rounded-lg border border-line px-4 py-3 text-[13px] text-ink-soft hover:border-brand-300">知识图谱<span class="font-mono text-[10px] text-muted">Graph →</span></a></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</MainLayout>
+
+<style is:global>
+  /* Pagefind UI 变量与站点设计 token 对齐 */
+  :root {
+    --pagefind-ui-scale: 0.9;
+    --pagefind-ui-primary: #17403f;
+    --pagefind-ui-text: #101d18;
+    --pagefind-ui-background: #ffffff;
+    --pagefind-ui-border: #e2e8e4;
+    --pagefind-ui-tag: #f6f8f7;
+    --pagefind-ui-border-width: 1px;
+    --pagefind-ui-border-radius: 10px;
+    --pagefind-ui-font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif;
+  }
+
+  .pagefind-ui__search-input {
+    font-weight: 400 !important;
+    height: 46px;
+    font-size: 15px !important;
+  }
+
+  .pagefind-ui__search-clear {
+    display: none;
+  }
+
+  .pagefind-ui__result {
+    padding: 1rem 0 !important;
+  }
+
+  .pagefind-ui__result-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem !important;
+  }
+
+  .pagefind-ui__result-excerpt {
+    font-size: 0.85rem !important;
+    line-height: 1.7 !important;
+    color: var(--color-muted) !important;
+  }
+
+  .pagefind-ui__result-excerpt mark {
+    background: var(--color-accent-100) !important;
+    color: var(--color-accent-700) !important;
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+
+  .pagefind-ui__result-title a {
+    text-decoration: none !important;
+  }
+</style>
+
+<script is:inline>
+  // Pagefind 的 UI 是普通脚本（非 ES module），用 script 标签加载最稳。
+  // is:inline 让 Astro 不做打包处理：索引文件在构建之后才存在。
+  (function () {
+    var fallback = document.getElementById('search-fallback');
+    var query = new URLSearchParams(window.location.search).get('q') || '';
+
+    function init(PagefindUI) {
+      if (!PagefindUI) return;
+      if (fallback && fallback.parentNode) fallback.parentNode.removeChild(fallback);
+
+      new PagefindUI({
+        element: '#search',
+        showSubResults: true,
+        showImages: false,
+        translations: {
+          placeholder: '搜索 GEO 概念、工具或研究…',
+          zero_results: '没有找到与「[SEARCH_TERM]」相关的内容',
+          many_results: '找到 [COUNT] 条结果',
+          one_result: '找到 1 条结果',
+          alt_search: '改为搜索 [SEARCH_TERM]',
+          search_suggestion: '试试这些关键词：',
+          searching: '检索中…',
+        },
+      });
+
+      if (query) {
+        var input = document.querySelector('.pagefind-ui__search-input');
+        if (input) {
+          input.value = query;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    }
+
+    var styles = document.createElement('link');
+    styles.rel = 'stylesheet';
+    styles.href = '/pagefind/pagefind-ui.css';
+    document.head.appendChild(styles);
+
+    var script = document.createElement('script');
+    script.src = '/pagefind/pagefind-ui.js';
+    script.onload = function () {
+      init(window.PagefindUI);
+    };
+    script.onerror = function () {
+      // 索引尚未生成：保留 fallback 提示
+    };
+    document.head.appendChild(script);
+  })();
+</script>

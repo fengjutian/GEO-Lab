@@ -205,8 +205,8 @@ function layout(nodes: GraphNode[], edges: GraphEdge[], width = 760, height = 52
 
   const byId = new Map(positions.map((node) => [node.id, node]));
 
-  for (let iteration = 0; iteration < 320; iteration += 1) {
-    const alpha = 0.35 * (1 - iteration / 320) + 0.02;
+  for (let iteration = 0; iteration < 420; iteration += 1) {
+    const alpha = 0.4 * (1 - iteration / 420) + 0.02;
 
     for (let i = 0; i < positions.length; i += 1) {
       for (let j = i + 1; j < positions.length; j += 1) {
@@ -245,12 +245,26 @@ function layout(nodes: GraphNode[], edges: GraphEdge[], width = 760, height = 52
     for (const node of positions) {
       node.x += (width / 2 - node.x) * 0.008 * alpha * 3;
       node.y += (height / 2 - node.y) * 0.008 * alpha * 3;
-      node.x = Math.max(44, Math.min(width - 44, node.x));
-      node.y = Math.max(36, Math.min(height - 36, node.y));
     }
   }
 
-  return positions;
+  // 力导向布局的结果常常挤在局部，最后统一缩放到画布内，避免大片空白。
+  const xs = positions.map((node) => node.x);
+  const ys = positions.map((node) => node.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const padding = 56;
+  const scaleX = (width - padding * 2) / Math.max(1, maxX - minX);
+  const scaleY = (height - padding * 2) / Math.max(1, maxY - minY);
+  const scale = Math.min(scaleX, scaleY);
+
+  return positions.map((node) => ({
+    ...node,
+    x: padding + (node.x - minX) * scale + ((width - padding * 2) - (maxX - minX) * scale) / 2,
+    y: padding + (node.y - minY) * scale + ((height - padding * 2) - (maxY - minY) * scale) / 2,
+  }));
 }
 
 export default function KnowledgeGraph() {
@@ -274,7 +288,9 @@ export default function KnowledgeGraph() {
   const byId = useMemo(() => new Map(positioned.map((node) => [node.id, node])), [positioned]);
   const categories: (GraphNode['category'] | '全部')[] = ['全部', '概念', '检索', '表示', '生成', '可信度'];
 
-  const isDimmed = (id: string) => active !== null && !neighbors.has(id);
+  // 只在悬停时压暗无关节点；点击选中时保持全图可见，避免误以为图是空的。
+  const dimSource = hovered;
+  const isDimmed = (id: string) => dimSource !== null && !neighbors.has(id);
   const isFiltered = (node: GraphNode) => category !== '全部' && node.category !== category;
 
   return (
@@ -314,9 +330,9 @@ export default function KnowledgeGraph() {
                     y1={source.y}
                     x2={target.x}
                     y2={target.y}
-                    stroke={highlighted ? CATEGORY_COLORS[source.category] : 'rgba(255,255,255,0.18)'}
+                    stroke={highlighted ? CATEGORY_COLORS[source.category] : 'rgba(255,255,255,0.28)'}
                     strokeWidth={highlighted ? 1.6 : 1}
-                    opacity={dim ? 0.12 : 0.75}
+                    opacity={dim ? 0.12 : 0.9}
                   />
                 );
               })}

@@ -5,7 +5,6 @@
 
 export type Token = string;
 
-const CJK = /[\u4e00-\u9fff]/;
 const WORD = /[A-Za-z0-9][A-Za-z0-9+#._-]*/g;
 const CJK_CHAR = /[\u4e00-\u9fff]/g;
 

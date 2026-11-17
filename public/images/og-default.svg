@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="GEO Lab — 让 AI 看见你的内容">
+  <rect width="1200" height="630" fill="#ffffff" />
+  <g stroke="#e2e8e4" stroke-width="1">
+    <path d="M0 120h1200M0 240h1200M0 360h1200M0 480h1200" />
+    <path d="M160 0v630M320 0v630M480 0v630M640 0v630M800 0v630M960 0v630M1120 0v630" />
+  </g>
+  <rect x="0" y="0" width="1200" height="6" fill="#0f3b31" />
+
+  <g transform="translate(80, 96)">
+    <rect width="52" height="52" rx="12" fill="#0f3b31" />
+    <text x="26" y="34" font-family="Segoe UI, sans-serif" font-size="20" font-weight="600" fill="#ffffff" text-anchor="middle">GL</text>
+    <text x="70" y="22" font-family="Segoe UI, sans-serif" font-size="26" font-weight="600" fill="#101d18">GEO Lab</text>
+    <text x="70" y="44" font-family="Consolas, monospace" font-size="12" letter-spacing="3" fill="#5d6f66">KNOWLEDGE · RESEARCH · TOOLS</text>
+  </g>
+
+  <text x="80" y="290" font-family="Songti SC, Noto Serif SC, serif" font-size="76" font-weight="600" fill="#101d18">
+    让 AI 看见你的内容。
+  </text>
+  <text x="80" y="352" font-family="Georgia, serif" font-size="36" font-style="italic" fill="#1f6250">
+    Make Your Content Visible to AI.
+  </text>
+
+  <text x="80" y="432" font-family="Segoe UI, sans-serif" font-size="21" fill="#5d6f66">
+    研究 AI 如何发现、理解、检索和引用互联网内容
+  </text>
+  <text x="80" y="470" font-family="Segoe UI, sans-serif" font-size="21" fill="#5d6f66">
+    Generative Engine Optimization Laboratory
+  </text>
+
+  <g transform="translate(80, 520)">
+    <rect width="180" height="40" rx="20" fill="#eef6f2" stroke="#aed3c4" />
+    <text x="90" y="26" font-family="Consolas, monospace" font-size="13" fill="#1f6250" text-anchor="middle">RESEARCH</text>
+    <g transform="translate(196, 0)">
+      <rect width="180" height="40" rx="20" fill="#eef6f2" stroke="#aed3c4" />
+      <text x="90" y="26" font-family="Consolas, monospace" font-size="13" fill="#1f6250" text-anchor="middle">EXPERIMENT</text>
+    </g>
+    <g transform="translate(392, 0)">
+      <rect width="200" height="40" rx="20" fill="#fdece1" stroke="#f6b98d" />
+      <text x="100" y="26" font-family="Consolas, monospace" font-size="13" fill="#9c3f0c" text-anchor="middle">OPTIMIZATION</text>
+    </g>
+  </g>
+
+  <g transform="translate(880, 250)" opacity="0.9">
+    <circle cx="0" cy="0" r="90" fill="none" stroke="#edf1ef" stroke-width="1.5" />
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#d7e9e1" stroke-width="1.5" />
+    <circle cx="0" cy="0" r="7" fill="#0f3b31" />
+    <circle cx="-52" cy="-34" r="6" fill="#2f7a63" />
+    <circle cx="46" cy="-46" r="6" fill="#e0661f" />
+    <circle cx="38" cy="52" r="6" fill="#4f9880" />
+    <circle cx="-40" cy="44" r="6" fill="#7fb8a3" />
+    <path d="M0 0L-52 -34M0 0L46 -46M0 0L38 52M0 0L-40 44" stroke="#cbd6d0" stroke-width="1.2" />
+  </g>
+
+  <text x="80" y="600" font-family="Consolas, monospace" font-size="12" fill="#5d6f66">geolab.dev</text>
+</svg>

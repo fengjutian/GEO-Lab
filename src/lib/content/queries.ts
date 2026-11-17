@@ -30,11 +30,6 @@ export async function getCases() {
   return entries.sort(byDateDesc);
 }
 
-export async function getToolDocs() {
-  const entries = await getCollection('tools', (entry) => isPublished(entry));
-  return entries.sort((a, b) => a.data.title.localeCompare(b.data.title, 'zh-CN'));
-}
-
 export type AnyEntry =
   | CollectionEntry<'knowledge'>
   | CollectionEntry<'research'>

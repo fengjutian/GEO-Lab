@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Note } from '@/features/shared/ui';
 
 type Field = 'name' | 'email' | 'company' | 'site' | 'need' | 'message';
@@ -57,7 +57,7 @@ export default function ContactForm() {
 
   const mailto = `mailto:${EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validate()) return;
     setSent(true);

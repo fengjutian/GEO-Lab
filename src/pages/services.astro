@@ -1,0 +1,190 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import PageHeader from '@/components/common/PageHeader.astro';
+import ContactForm from '@/features/services/ContactForm';
+import { breadcrumbSchema, organizationSchema } from '@/lib/schema/jsonld';
+import { SITE } from '@/lib/seo/site';
+
+const stages = [
+  {
+    step: '01',
+    title: 'GEO 技术诊断',
+    duration: '1-2 周',
+    deliverable: '分层诊断报告',
+    body: '按可抓取、可理解、可测量三层检查站点：抓取与索引基础、模板与标题结构、结构化数据与实体一致、内链与内容组织。只报告实际检查过的项。',
+    items: ['抓取与索引可达性', '模板与标题层级', '结构化数据一致性', '实体与作者信号', '内链结构'],
+  },
+  {
+    step: '02',
+    title: 'GEO 网站优化',
+    duration: '3-6 周',
+    deliverable: '改造方案 + 实施',
+    body: '优先修复影响面最大且可验证的结构问题：模板级结构化数据、关键页面的内容重组、内链聚合。每项改动都标注预期作用与验证方式。',
+    items: ['模板与 Schema 改造', '关键页面内容重组', '内链与主题聚合', '多语言与 canonical'],
+  },
+  {
+    step: '03',
+    title: 'GEO 内容优化',
+    duration: '持续',
+    deliverable: '内容规范 + 样例',
+    body: '把“可被摘取”的结构要求变成团队可执行的内容规范，并对现有内容做分批改造。我们不做批量 AI 改写。',
+    items: ['内容结构规范', '结论先行的写法模板', '来源与证据标注规范', '编辑审核流程'],
+  },
+  {
+    step: '04',
+    title: '可见性监测',
+    duration: '按月',
+    deliverable: '周期性测试报告',
+    body: '用固定问题集在指定 AI 系统中重复测试，记录提及率、引用率、引用位置与答案准确率。报告写明模型版本、测试时间与不可比因素。',
+    items: ['问题集设计与维护', '多系统重复观测', '引用来源分析', '趋势与偏差说明'],
+  },
+];
+
+const principles = [
+  {
+    title: '先诊断，后承诺',
+    body: '没有诊断就给出优化方案，等于在不知道问题的情况下卖解决方案。我们的报价以诊断结论为前提。',
+  },
+  {
+    title: '区分结构与可见性',
+    body: '结构问题可以静态检查，AI 是否引用只能测试观测。我们不会把结构分数包装成引用率提升。',
+  },
+  {
+    title: '保留失败记录',
+    body: '改完没有效果的方案，同样写进报告。GEO 领域缺的不是成功案例，而是可核验的失败记录。',
+  },
+];
+
+const schemas = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: '首页', url: '/' },
+    { name: '企业服务', url: '/services/' },
+  ]),
+];
+---
+
+<MainLayout
+  title="企业 GEO 服务"
+  description="GEO 技术诊断、网站优化、内容优化与 AI 可见性监测。以证据为前提：先诊断、再报价，区分结构检查与可见性测试，不承诺 AI 引用结果。"
+  canonical="/services/"
+  schemas={schemas}
+>
+  <PageHeader
+    eyebrow="Services"
+    title="企业 GEO 服务"
+    titleEn="Diagnose first. Then decide whether to optimize."
+    description="四个阶段，从技术诊断到持续监测。我们不卖“AI 排名”，只做可验证的工程改造与可复现的测试。"
+    crumb={[{ name: '企业服务', href: '/services/' }]}
+    stats={[
+      { label: '阶段', value: '4' },
+      { label: '起效周期', value: '4-8 周' },
+    ]}
+  />
+
+  <div class="mx-auto max-w-6xl px-5 py-12 sm:px-8">
+    <div class="grid gap-4 md:grid-cols-2">
+      {
+        stages.map((stage) => (
+          <section class="flex flex-col rounded-[var(--radius-card)] border border-line bg-canvas p-6">
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-[11px] tracking-[0.14em] text-brand-500">{stage.step}</span>
+              <span class="chip !text-[11px]">{stage.duration}</span>
+            </div>
+            <h2 class="mt-3 text-lg font-semibold text-ink">{stage.title}</h2>
+            <p class="mt-2 flex-1 text-[13px] leading-relaxed text-muted">{stage.body}</p>
+            <ul class="mt-4 grid gap-1.5 border-t border-line pt-4">
+              {stage.items.map((item) => (
+                <li class="flex items-start gap-2 text-[12px] text-ink-soft">
+                  <span class="mt-1.5 size-1 shrink-0 rounded-full bg-brand-400" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <p class="mt-4 font-mono text-[10px] tracking-wide text-muted uppercase">
+              交付物：{stage.deliverable}
+            </p>
+          </section>
+        ))
+      }
+    </div>
+
+    <!-- 工作原则 -->
+    <section class="mt-16">
+      <h2 class="display-title text-2xl">我们的三条原则</h2>
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        {
+          principles.map((principle, index) => (
+            <div class="rounded-xl border border-line bg-surface p-5">
+              <span class="font-mono text-[10px] text-brand-500">0{index + 1}</span>
+              <h3 class="mt-2 text-[15px] font-semibold text-ink">{principle.title}</h3>
+              <p class="mt-2 text-[13px] leading-relaxed text-muted">{principle.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- 定价说明 -->
+    <section class="mt-16 grid gap-8 lg:grid-cols-[1fr_1fr]">
+      <div>
+        <h2 class="display-title text-2xl">计价方式</h2>
+        <p class="mt-3 text-sm leading-relaxed text-muted">
+          诊断是独立的固定费用项目；优化与监测按范围与周期报价。我们不在诊断前给出“提升幅度”承诺 ——
+          这类承诺在 GEO 领域没有可验证的依据。
+        </p>
+        <dl class="mt-6 divide-y divide-line border-y border-line">
+          <div class="flex items-baseline justify-between gap-4 py-3">
+            <dt class="text-[13px] text-ink-soft">GEO 技术诊断</dt>
+            <dd class="font-mono text-[11px] text-muted">固定费用 / 按站点规模</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 py-3">
+            <dt class="text-[13px] text-ink-soft">网站与内容优化</dt>
+            <dd class="font-mono text-[11px] text-muted">项目制</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 py-3">
+            <dt class="text-[13px] text-ink-soft">可见性监测</dt>
+            <dd class="font-mono text-[11px] text-muted">月度订阅</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 py-3">
+            <dt class="text-[13px] text-ink-soft">团队培训</dt>
+            <dd class="font-mono text-[11px] text-muted">按场次</dd>
+          </div>
+        </dl>
+        <p class="mt-4 text-xs leading-relaxed text-muted">
+          需要具体报价请提交需求，我们会先确认范围。也可以先自己用
+          <a href="/tools/site-audit/" class="text-brand-700 link-underline">免费诊断工具</a>
+          跑一遍结构检查。
+        </p>
+      </div>
+
+      <div>
+        <h2 class="display-title text-2xl">提交需求</h2>
+        <p class="mt-3 text-sm leading-relaxed text-muted">
+          请尽量写清站点类型与当前问题。我们会先判断是否适合做 GEO 诊断 —— 有些问题（例如站点无法被抓取）属于基础工程问题，不需要 GEO 项目。
+        </p>
+        <div class="mt-5">
+          <ContactForm client:load />
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-16 rounded-2xl border border-line bg-surface p-8">
+      <div class="grid items-center gap-6 lg:grid-cols-[1fr_auto]">
+        <div>
+          <p class="eyebrow">Transparency</p>
+          <h2 class="display-title mt-2 text-xl sm:text-2xl">我们不会做的事</h2>
+          <ul class="mt-3 grid gap-2 text-[13px] text-muted sm:grid-cols-2">
+            <li>· 承诺“进入 AI 答案”的具体概率或排名</li>
+            <li>· 用批量 AI 生成内容替换原有页面</li>
+            <li>· 制造虚假作者、虚假引用或虚假客户案例</li>
+            <li>· 把结构诊断报告包装成可见性提升证明</li>
+          </ul>
+        </div>
+        <a href={`mailto:${SITE.organization.email}`} class="btn btn-ghost shrink-0">
+          {SITE.organization.email}
+        </a>
+      </div>
+    </section>
+  </div>
+</MainLayout>

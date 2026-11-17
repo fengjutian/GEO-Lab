@@ -20,3 +20,9 @@ Thumbs.db
 
 # pagefind generated index
 public/pagefind/
+
+# local verification screenshots
+.shots/
+build.log
+check.log
+

@@ -11,6 +11,8 @@
     "preview": "astro preview",
     "search:index": "pagefind --site dist",
     "check": "astro check",
+    "check:site": "node scripts/check-site.mjs",
+    "verify": "astro build && pagefind --site dist && node scripts/check-site.mjs",
     "astro": "astro"
   },
   "dependencies": {
