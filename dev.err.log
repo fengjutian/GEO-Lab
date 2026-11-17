@@ -1,5 +1,5 @@
 [0m[1m[31merror[0m: unexpected argument '--allow-scripts' found
-17:37:50 [ERROR] [UnhandledRejection] Astro detected an unhandled rejection. Here's the stack trace:
+17:39:38 [ERROR] [UnhandledRejection] Astro detected an unhandled rejection. Here's the stack trace:
 Error: Could not establish a connection to the Netlify Edge Functions local development server
     at EdgeFunctionsHandler.waitForDenoServer (file:///D:/github/GEO-Lab/node_modules/.pnpm/@netlify+edge-functions-dev@1.0.24/node_modules/@netlify/edge-functions-dev/dist/node/main.js:317:15)
     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

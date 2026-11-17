@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Note, Panel } from '@/features/shared/ui';
+import { Note, Panel, WorkbenchShell } from '@/features/shared/ui';
 
 type ProjectSummary = { id: string; name: string; brand: string; questionCount: number };
 
@@ -94,6 +94,7 @@ export default function CaptureKit() {
   }, [token, project, endpointLabel]);
 
   return (
+    <WorkbenchShell>
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <Panel title="生成书签" hint="拖到书签栏即可使用">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -216,5 +217,6 @@ GEO_BENCHMARK_DB=data/benchmark.db</pre>
         </Note>
       </div>
     </div>
+    </WorkbenchShell>
   );
 }

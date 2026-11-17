@@ -1,23 +1,22 @@
-17:37:45 [@astrojs/netlify] Enabling sessions with Netlify Blobs
-17:37:46 [vite] Environment loaded
-17:37:46 [vite] Middleware loaded. Emulating features: aiGateway, blobs, database, edgeFunctions, functions, geolocation, headers, images, redirects, static.
-17:37:46 [vite] 💭 Linking this project to a Netlify site lets you deploy your site, use any environment variables defined on your team and site and much more. Run npx netlify init to get started.
-17:37:46 [types] Generated 1ms
-17:37:47 [content] Syncing content
-17:37:47 [content] Synced content
+17:39:33 [@astrojs/netlify] Enabling sessions with Netlify Blobs
+17:39:34 [vite] Environment loaded
+17:39:34 [vite] Middleware loaded. Emulating features: aiGateway, blobs, database, edgeFunctions, functions, geolocation, headers, images, redirects, static.
+17:39:34 [vite] 💭 Linking this project to a Netlify site lets you deploy your site, use any environment variables defined on your team and site and much more. Run npx netlify init to get started.
+17:39:34 [types] Generated 1ms
+17:39:34 [content] Syncing content
+17:39:35 [content] Synced content
+17:39:35 [vite] Re-optimizing dependencies because vite config has changed
 
- astro  v5.18.2 ready in 5090 ms
+ astro  v5.18.2 ready in 4264 ms
 
 ┃ Local    http://localhost:4321/
 ┃ Network  use --host to expose
 
-17:37:47 watching for file changes...
-17:38:02 [200] /api/benchmark/projects 32ms
-17:38:13 [200] /benchmark/31d01e87-cf78-4c27-ba5c-b3854b5c612f/ 185ms
-17:38:14 [200] /api/benchmark/provider 3ms
-17:38:14 [200] /api/benchmark/endpoints 4ms
-17:38:14 [200] /api/benchmark/projects/31d01e87-cf78-4c27-ba5c-b3854b5c612f 5ms
-17:38:18 [200] /benchmark/ 22ms
-17:38:18 [200] /api/benchmark/endpoints 1ms
-17:38:18 [200] /api/benchmark/projects 2ms
-17:38:18 [200] /api/benchmark/provider 1ms
+17:39:35 watching for file changes...
+17:39:36 [200] /benchmark/ 153ms
+17:39:37 [200] /api/benchmark/provider 17ms
+17:39:37 [200] /api/benchmark/endpoints 19ms
+17:39:37 [200] /api/benchmark/projects 2ms
+17:39:54 [200] /benchmark/capture/ 14ms
+17:39:54 [200] /api/benchmark/endpoints 1ms
+17:39:54 [200] /api/benchmark/projects 2ms
