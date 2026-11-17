@@ -1,0 +1,249 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   GEO Lab 设计 Token
+   风格：研究机构 + 科技媒体。白底、深绿主色、橙色强调、大留白、克制的动效。
+   ========================================================================== */
+
+@theme {
+  --color-canvas: #ffffff;
+  --color-surface: #f6f8f7;
+  --color-surface-strong: #edf1ef;
+  --color-ink: #101d18;
+  --color-ink-soft: #33463d;
+  --color-muted: #5d6f66;
+  --color-line: #e2e8e4;
+  --color-line-strong: #cbd6d0;
+
+  /* 深绿主色阶 */
+  --color-brand-50: #eef6f2;
+  --color-brand-100: #d7e9e1;
+  --color-brand-200: #aed3c4;
+  --color-brand-300: #7fb8a3;
+  --color-brand-400: #4f9880;
+  --color-brand-500: #2f7a63;
+  --color-brand-600: #1f6250;
+  --color-brand-700: #174d40;
+  --color-brand-800: #0f3b31;
+  --color-brand-900: #0b2c25;
+  --color-brand-950: #071d19;
+
+  /* 橙色强调 */
+  --color-accent-100: #fdece1;
+  --color-accent-300: #f6b98d;
+  --color-accent-500: #e0661f;
+  --color-accent-600: #c4510f;
+  --color-accent-700: #9c3f0c;
+
+  /* 功能色 */
+  --color-info: #1f6feb;
+  --color-warn: #b7791f;
+  --color-danger: #b42318;
+  --color-ok: #1f7a4d;
+
+  --font-sans:
+    'Inter', system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-display:
+    'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', 'Songti SC', 'Noto Serif SC',
+    serif;
+  --font-mono:
+    'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', 'Menlo', monospace;
+
+  --radius-card: 14px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 1px 2px rgb(16 29 24 / 0.04), 0 8px 24px -16px rgb(16 29 24 / 0.18);
+  --shadow-float: 0 18px 48px -24px rgb(16 29 24 / 0.32);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'kern', 'liga', 'calt';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* --- 排版工具 --- */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .display-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+  }
+
+  .lede {
+    color: var(--color-muted);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+
+  .hairline {
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* --- 卡片 --- */
+  .card {
+    background: var(--color-canvas);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+
+  .card-hover:hover {
+    border-color: var(--color-brand-200);
+    box-shadow: var(--shadow-card);
+    transform: translateY(-2px);
+  }
+
+  /* --- 标签 --- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-pill);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--color-ink-soft);
+    background: var(--color-canvas);
+    white-space: nowrap;
+  }
+
+  .chip-brand {
+    border-color: var(--color-brand-200);
+    background: var(--color-brand-50);
+    color: var(--color-brand-700);
+  }
+
+  .chip-accent {
+    border-color: var(--color-accent-300);
+    background: var(--color-accent-100);
+    color: var(--color-accent-700);
+  }
+
+  /* --- 按钮 --- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    padding: 0.65rem 1.2rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.2;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .btn-primary {
+    background: var(--color-brand-800);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: var(--color-brand-700);
+  }
+
+  .btn-ghost {
+    border-color: var(--color-line-strong);
+    color: var(--color-ink);
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    border-color: var(--color-brand-400);
+    color: var(--color-brand-700);
+    background: var(--color-brand-50);
+  }
+
+  .btn-accent {
+    background: var(--color-accent-500);
+    color: #fff;
+  }
+  .btn-accent:hover {
+    background: var(--color-accent-600);
+  }
+
+  /* --- 网格背景（研究门户的视觉特征，不抢内容） --- */
+  .grid-backdrop {
+    background-image:
+      linear-gradient(to right, var(--color-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  }
+
+  /* --- 链接 --- */
+  .link-underline {
+    text-decoration: underline;
+    text-decoration-color: var(--color-brand-200);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 160ms ease;
+  }
+  .link-underline:hover {
+    text-decoration-color: var(--color-brand-500);
+  }
+}
