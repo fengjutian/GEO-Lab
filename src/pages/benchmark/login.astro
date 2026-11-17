@@ -1,0 +1,65 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import { authRequired, safeNext } from '@/lib/benchmark/auth';
+
+export const prerender = false;
+
+const enabled = authRequired();
+const next = safeNext(Astro.url.searchParams.get('next'));
+const hasError = Astro.url.searchParams.get('error') === '1';
+---
+
+<MainLayout
+  title="登录可见性工作台"
+  description="GEO Lab 可见性监测工作台的访问入口。"
+  canonical="/benchmark/login/"
+  noindex
+>
+  <div class="mx-auto flex max-w-md flex-col px-5 py-20 sm:px-8">
+    <p class="eyebrow">Benchmark</p>
+    <h1 class="display-title mt-2 text-3xl">登录工作台</h1>
+    <p class="mt-3 text-sm leading-relaxed text-muted">
+      工作台包含品牌的可见性记录与原始答案，默认对外关闭。输入管理员口令后进入。
+    </p>
+
+    {
+      !enabled ? (
+        <div class="mt-8 rounded-xl border border-line bg-surface p-5">
+          <p class="text-sm font-medium text-ink">当前未启用访问控制</p>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            服务端没有设置 <code class="rounded bg-canvas px-1.5 py-0.5 font-mono text-[11px]">GEO_BENCHMARK_ADMIN_TOKEN</code>，
+            因此工作台可直接访问。部署到公网前请设置该变量。
+          </p>
+          <a href="/benchmark/" class="btn btn-primary mt-4">进入工作台</a>
+        </div>
+      ) : (
+        <form method="post" action="/api/benchmark/auth/login" class="mt-8 space-y-4 rounded-xl border border-line bg-canvas p-6">
+          <input type="hidden" name="next" value={next} />
+          <label class="block">
+            <span class="font-mono text-[10px] tracking-[0.12em] text-muted uppercase">管理员口令</span>
+            <input
+              type="password"
+              name="token"
+              required
+              autofocus
+              autocomplete="current-password"
+              class="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-400"
+              placeholder="GEO_BENCHMARK_ADMIN_TOKEN"
+            />
+          </label>
+          {
+            hasError && (
+              <p class="text-[12px] text-rose-700">口令不正确，请重试。</p>
+            )
+          }
+          <button type="submit" class="btn btn-primary w-full">进入工作台</button>
+          <p class="text-[11px] leading-relaxed text-muted">
+            会话保存在 HttpOnly Cookie 中，有效期为 7 天；口令本身不会写入 Cookie 或数据库。
+          </p>
+        </form>
+      )
+    }
+
+    <a href="/" class="mt-6 text-xs text-muted link-underline">← 返回站点首页</a>
+  </div>
+</MainLayout>

@@ -2,9 +2,12 @@
 import MainLayout from '@/layouts/MainLayout.astro';
 import PageHeader from '@/components/common/PageHeader.astro';
 import BenchmarkDashboard from '@/features/benchmark/BenchmarkDashboard';
+import { authRequired } from '@/lib/benchmark/auth';
 
 // 监测数据需要服务端读写，因此本页不做预渲染（其余页面仍是静态产物）。
 export const prerender = false;
+
+const gated = authRequired();
 
 const method = [
   {
@@ -53,6 +56,21 @@ const method = [
   />
 
   <div class="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <p class="eyebrow">Workspace</p>
+      {
+        gated ? (
+          <a href="/api/benchmark/auth/logout" class="text-xs text-muted hover:text-brand-700">
+            退出登录
+          </a>
+        ) : (
+          <span class="font-mono text-[10px] tracking-wide text-muted uppercase">
+            未启用访问控制
+          </span>
+        )
+      }
+    </div>
+
     <BenchmarkDashboard client:only="react" />
 
     <section class="mt-14 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -104,7 +122,7 @@ const method = [
             <li>· 数据存放在服务端 SQLite（本地 <code>data/benchmark.db</code>；Netlify 上为函数实例的 <code>/tmp</code>），不经过第三方。</li>
             <li>· 内容页仍是静态产物；只有本页与 <code>/api/benchmark</code> 需要服务端运行时。</li>
             <li>· Netlify Function 的 <code>/tmp</code> 会随实例回收清空：适合演示与短期记录，长期存档需要接外部数据库。</li>
-            <li>· 当前没有账号体系：请部署在受信任的网络内，或自行加反向代理鉴权。</li>
+            <li>· 设置 <code>GEO_BENCHMARK_ADMIN_TOKEN</code> 后，工作台页面与数据接口需要先登录（HttpOnly 会话 Cookie，7 天）。</li>
           </ul>
         </div>
 

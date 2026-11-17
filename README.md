@@ -167,6 +167,20 @@ GEO_BENCHMARK_CAPTURE_TOKEN=<随机字符串>   # 不设置则采集接口返回
 打开 `/benchmark/capture/`，填入同一个 token，把生成的按钮拖到书签栏。在 AI 产品页面点书签后：
 先请求候选问题（词面匹配，不调用模型）→ 你确认编号 → 写入「浏览器采集 · \<来源\> · \<日期\>」批次。
 
+**访问控制（公网部署必开）**
+
+```bash
+GEO_BENCHMARK_ADMIN_TOKEN=<随机口令>   # 不设置则工作台完全开放
+```
+
+- 保护范围：`/benchmark/*` 页面与 `/api/benchmark/*` 数据接口
+- 登录页 `/benchmark/login`：口令换 HttpOnly 会话 Cookie（HMAC 派生，7 天，`SameSite=Lax`）；口令本身不写 Cookie、不进数据库
+- 采集接口（`/api/benchmark/capture/*`）保持公开，用它自己的 token + CORS 鉴权——书签运行在第三方页面，无法携带 Cookie
+- 脚本与 CI 可用请求头 `x-geo-admin-token` 免登录（测试脚本即用这个方式）
+- 未设置时行为与之前一致（本地开发无需登录），页面右上角会标注「未启用访问控制」
+
+![工作台登录](docs/screenshots/benchmark-login.png)
+
 **配置默认端点（不建端点时仍可用）**
 
 ```bash
@@ -185,10 +199,13 @@ pnpm build                       # 产出 dist/（静态页）与 .netlify/v1/fu
 pnpm preview                     # netlify dev，本地验证静态页 + SSR Function
 pnpm dev                         # 或直接用 astro dev（API 同样可用）
 
-# 端到端测试：需要 dev server 处于运行状态，并带上采集 token
-GEO_BENCHMARK_CAPTURE_TOKEN=test-capture-token pnpm dev
-GEO_TEST_CAPTURE_TOKEN=test-capture-token node scripts/test-benchmark.mjs http://localhost:4321
+# 端到端测试：需要 dev server 处于运行状态
+GEO_BENCHMARK_CAPTURE_TOKEN=test-capture-token GEO_BENCHMARK_ADMIN_TOKEN=test-admin-token pnpm dev
+GEO_TEST_CAPTURE_TOKEN=test-capture-token GEO_TEST_ADMIN_TOKEN=test-admin-token \
+  node scripts/test-benchmark.mjs http://localhost:4321
 ```
+
+省略 `GEO_TEST_ADMIN_TOKEN` 时鉴权断言会跳过（服务端也没开鉴权的情况下测试依然全绿）。
 
 测试会自行启动 `scripts/mock-llm.mjs`（端口 4399）来验证并行调度与一致性矩阵，不消耗真实模型额度。
 `pnpm benchmark:reset` 清空本地监测数据库（需确认）。

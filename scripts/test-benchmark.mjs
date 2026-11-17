@@ -3,14 +3,19 @@
  * 可见性工作台端到端测试（需要先启动服务端）。
  *
  *   GEO_BENCHMARK_CAPTURE_TOKEN=test-capture-token pnpm dev
- *   GEO_TEST_CAPTURE_TOKEN=test-capture-token node scripts/test-benchmark.mjs http://127.0.0.1:4321
+ *   GEO_TEST_CAPTURE_TOKEN=test-capture-token node scripts/test-benchmark.mjs http://localhost:4321
  *
- * 覆盖：示例项目、指标口径、手工记录、问题集、导出、多端点并行与一致性、浏览器采集、删除。
+ * 启用访问控制后再加：
+ *   GEO_BENCHMARK_ADMIN_TOKEN=test-admin-token pnpm dev
+ *   GEO_TEST_ADMIN_TOKEN=test-admin-token node scripts/test-benchmark.mjs http://localhost:4321
+ *
+ * 覆盖：鉴权、示例项目、指标口径、手工记录、问题集、导出、多端点并行与一致性、浏览器采集、删除。
  * 多端点部分会自行启动 scripts/mock-llm.mjs（端口 4399），不调用真实模型。
  */
 import { spawn } from 'node:child_process';
 
-const base = (process.argv[2] ?? 'http://127.0.0.1:4321').replace(/\/$/, '');
+const base = (process.argv[2] ?? 'http://localhost:4321').replace(/\/$/, '');
+const adminToken = process.env.GEO_TEST_ADMIN_TOKEN ?? '';
 let failures = 0;
 
 function check(name, condition, detail = '') {
@@ -22,10 +27,19 @@ function check(name, condition, detail = '') {
   }
 }
 
+/** 启用鉴权时，脚本用请求头访问（与 Cookie 会话等价）。 */
+function authHeaders() {
+  return adminToken ? { 'x-geo-admin-token': adminToken } : {};
+}
+
 async function api(path, options = {}) {
   const response = await fetch(`${base}${path}`, {
-    headers: { 'content-type': 'application/json' },
     ...options,
+    headers: {
+      'content-type': 'application/json',
+      ...authHeaders(),
+      ...(options.headers ?? {}),
+    },
   });
   const text = await response.text();
   let body = null;
@@ -37,7 +51,61 @@ async function api(path, options = {}) {
   return { status: response.status, body, headers: response.headers };
 }
 
-console.log(`测试目标：${base}\n`);
+console.log(`测试目标：${base}${adminToken ? '（已启用访问控制）' : ''}\n`);
+
+/* 0. 访问控制 */
+if (adminToken) {
+  console.log('0. 访问控制');
+  const anonymous = await fetch(`${base}/api/benchmark/projects`);
+  check('未登录访问 API 返回 401', anonymous.status === 401, `status=${anonymous.status}`);
+
+  const wrongHeader = await fetch(`${base}/api/benchmark/projects`, {
+    headers: { 'x-geo-admin-token': 'wrong-token' },
+  });
+  check('错误口令仍返回 401', wrongHeader.status === 401, `status=${wrongHeader.status}`);
+
+  const badLogin = await fetch(`${base}/api/benchmark/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: 'wrong-token' }),
+    redirect: 'manual',
+  });
+  check('错误口令登录被拒绝（303 回错误页）', badLogin.status === 303, `status=${badLogin.status}`);
+  check(
+    '错误跳转带 error=1',
+    (badLogin.headers.get('location') ?? '').includes('error=1'),
+    badLogin.headers.get('location') ?? '',
+  );
+
+  const login = await fetch(`${base}/api/benchmark/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: adminToken, next: '/benchmark/' }),
+  });
+  const setCookie = login.headers.get('set-cookie') ?? '';
+  check('正确口令登录返回 200', login.status === 200, `status=${login.status}`);
+  check('登录下发 HttpOnly 会话 Cookie', /geo_benchmark_admin=/i.test(setCookie) && /httponly/i.test(setCookie));
+
+  const cookieValue = setCookie.split(';')[0];
+  const withCookie = await fetch(`${base}/api/benchmark/projects`, {
+    headers: { cookie: cookieValue },
+  });
+  check('携带会话 Cookie 可访问 API', withCookie.status === 200, `status=${withCookie.status}`);
+
+  const page = await fetch(`${base}/benchmark/`, { redirect: 'manual' });
+  check('未登录访问工作台页面被重定向', page.status === 303 || page.status === 302, `status=${page.status}`);
+  check(
+    '重定向到登录页并带 next',
+    (page.headers.get('location') ?? '').includes('/benchmark/login?next='),
+    page.headers.get('location') ?? '',
+  );
+
+  const loginPage = await fetch(`${base}/benchmark/login`);
+  check('登录页本身可访问', loginPage.status === 200, `status=${loginPage.status}`);
+} else {
+  console.log('0. 访问控制（未设置 GEO_TEST_ADMIN_TOKEN，跳过）');
+}
+
 
 /* 1. 端点状态 */
 console.log('1. 模型端点状态');
@@ -144,7 +212,9 @@ check('错误信息说明如何配置', /GEO_LLM_API_KEY/.test(autoRun.body?.err
 
 /* 7. 导出 */
 console.log('\n7. 导出');
-const csv = await fetch(`${base}/api/benchmark/projects/${projectId}/export?format=csv`);
+const csv = await fetch(`${base}/api/benchmark/projects/${projectId}/export?format=csv`, {
+  headers: authHeaders(),
+});
 const csvBytes = new Uint8Array(await csv.arrayBuffer());
 const csvText = new TextDecoder('utf-8').decode(csvBytes);
 check('CSV 返回 200', csv.status === 200);
@@ -155,7 +225,9 @@ check(
 check('CSV 含问题列', csvText.includes('question_id'));
 check('CSV 含记录', csvText.includes('GEO Lab'));
 
-const md = await fetch(`${base}/api/benchmark/projects/${projectId}/export?format=md`);
+const md = await fetch(`${base}/api/benchmark/projects/${projectId}/export?format=md`, {
+  headers: authHeaders(),
+});
 const mdText = await md.text();
 check('Markdown 报告返回 200', md.status === 200);
 check('报告含指标表', mdText.includes('| 提及率 |'));
@@ -179,7 +251,7 @@ check('删除后详情返回 404', gone.status === 404);
 /* 9. 页面可访问 */
 console.log('\n9. 页面');
 for (const path of ['/benchmark/', `/benchmark/${projectId}/`, '/benchmark/capture/']) {
-  const response = await fetch(`${base}${path}`);
+  const response = await fetch(`${base}${path}`, { headers: authHeaders() });
   check(`GET ${path} 返回 200`, response.status === 200 || response.status === 404);
 }
 
