@@ -50,6 +50,14 @@ RAG 流程实验（BM25 召回 → 重排 → 上下文装配 → 抽取式引�
 
 ![监测项目详情](docs/screenshots/benchmark-project.png)
 
+多端点一致性矩阵（同一问题集并行跑两个端点，逐题对比提及与引用）：
+
+![多端点对比](docs/screenshots/benchmark-compare.png)
+
+浏览器采集书签（在 AI 产品页面一键提交答案）：
+
+![浏览器采集](docs/screenshots/benchmark-capture.png)
+
 ## 技术栈
 
 | 层 | 选择 | 说明 |
@@ -124,12 +132,42 @@ scripts/check-site.mjs  构建产物与内容校验
 
 - 为品牌建立固定问题集（默认 20 题，按认知 / 比较 / 决策 / 问题排查分层）
 - 自动运行：调用 OpenAI 兼容的 `/chat/completions` 逐题记录答案、品牌提及与来源链接
-- 手工记录：把 ChatGPT / Perplexity 等产品里的完整回答粘贴进来，按同一口径计算
+- **多端点并行对比**：同一问题集同时发给最多 4 个端点（端点之间并行、单端点内串行），输出一致性矩阵
+- **浏览器采集书签**：在 ChatGPT / Perplexity 页面上点一下，把答案提交回工作台（CORS + token）
+- 手工记录：把完整回答粘贴进来，按同一口径计算
 - 指标：提及率、引用率、来源份额、平均出现句序、意图分层、引用域名分布
+- 一致性：全一致 / 分歧 / 全未提及、来源重叠（Jaccard）、各端点独占来源
 - 导出 CSV（含 BOM，Excel 可直接打开）与 Markdown 报告
 - 示例项目：没有密钥也能看到完整工作台（标记为「示例数据」，不可作为结论）
 
-**配置自动运行**
+**端点配置**
+
+端点存在数据库里，但**只存密钥的环境变量名**，不存密钥本身：
+
+| 字段 | 说明 |
+| --- | --- |
+| Base URL | 任意 OpenAI 兼容端点，例如 `https://api.perplexity.ai`、自建网关 |
+| 模型 | `sonar-pro`、`gpt-4o-mini`、本地模型名 |
+| 密钥环境变量名 | 例如 `OPENAI_API_KEY`；留空表示自建网关/本地模型不需要鉴权 |
+| 额外请求体 | JSON，透传给供应商（如搜索范围、工具参数） |
+
+一个端点配置示例（界面里填写，环境变量另行设置）：
+
+```bash
+OPENAI_API_KEY=sk-...      # 与端点配置里的环境变量名一致
+PERPLEXITY_API_KEY=pplx-...
+```
+
+**浏览器采集**
+
+```bash
+GEO_BENCHMARK_CAPTURE_TOKEN=<随机字符串>   # 不设置则采集接口返回 403
+```
+
+打开 `/benchmark/capture/`，填入同一个 token，把生成的按钮拖到书签栏。在 AI 产品页面点书签后：
+先请求候选问题（词面匹配，不调用模型）→ 你确认编号 → 写入「浏览器采集 · \<来源\> · \<日期\>」批次。
+
+**配置默认端点（不建端点时仍可用）**
 
 ```bash
 GEO_LLM_API_KEY=sk-...
@@ -138,20 +176,28 @@ GEO_LLM_MODEL=gpt-4o-mini
 GEO_LLM_EXTRA_BODY={"temperature":0}          # 可选：供应商特定参数
 ```
 
-未配置 `GEO_LLM_API_KEY` 时自动运行会返回 400 并给出提示，手工模式仍然可用。
+未配置密钥时自动运行返回 400 并给出提示；手工记录与书签采集仍然可用。
 
 **运行方式**
 
 ```bash
 pnpm build                       # 产出 dist/（静态页）与 .netlify/v1/functions/ssr（按需路由）
 pnpm preview                     # netlify dev，本地验证静态页 + SSR Function
-node scripts/test-benchmark.mjs http://127.0.0.1:8888   # 端到端 API 测试（指向 netlify dev 的端口）
-pnpm benchmark:reset             # 清空本地监测数据库（需确认）
+pnpm dev                         # 或直接用 astro dev（API 同样可用）
+
+# 端到端测试：需要 dev server 处于运行状态，并带上采集 token
+GEO_BENCHMARK_CAPTURE_TOKEN=test-capture-token pnpm dev
+GEO_TEST_CAPTURE_TOKEN=test-capture-token node scripts/test-benchmark.mjs http://localhost:4321
 ```
+
+测试会自行启动 `scripts/mock-llm.mjs`（端口 4399）来验证并行调度与一致性矩阵，不消耗真实模型额度。
+`pnpm benchmark:reset` 清空本地监测数据库（需确认）。
 
 **能力边界**
 
-- 自动模式只调用 chat 端点，**不包含真实网页检索**：它衡量的是“模型在参数化知识下是否提及该品牌”，属于无检索基线，不等于 AI 搜索结果中的引用情况。要测后者，请用手工记录模式，或在 `GEO_LLM_BASE_URL` 指向带检索能力的端点。
+- 自动模式只调用 chat 端点，**不包含真实网页检索**：它衡量的是“模型在参数化知识下是否提及该品牌”，属于无检索基线，不等于 AI 搜索结果中的引用情况。要测后者，请用手工记录或书签采集，或把端点指向带检索能力的 API（如搜索类模型）。
+- 一致性矩阵不判断谁对：分歧只说明结果依赖模型与来源。
+- 书签读取的是点击时的页面文本，不同产品的 DOM 会变，读取失败时先选中答案再点。
 - 没有账号体系，请部署在可信网络内或自行加反向代理鉴权。
 - 不做显著性检验。单次运行只是快照，趋势需要重复观测。
 
