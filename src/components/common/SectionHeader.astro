@@ -1,0 +1,31 @@
+---
+type Props = {
+  eyebrow: string;
+  title: string;
+  description?: string;
+  link?: { href: string; label: string };
+};
+
+const { eyebrow, title, description, link } = Astro.props;
+---
+
+<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+  <div class="max-w-2xl">
+    <p class="eyebrow">{eyebrow}</p>
+    <h2 class="display-title mt-2 text-2xl sm:text-[1.75rem]">{title}</h2>
+    {description && <p class="mt-2 text-sm leading-relaxed text-muted">{description}</p>}
+  </div>
+  {
+    link && (
+      <a
+        href={link.href}
+        class="group inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
+      >
+        {link.label}
+        <span class="transition-transform group-hover:translate-x-0.5" aria-hidden="true">
+          →
+        </span>
+      </a>
+    )
+  }
+</div>

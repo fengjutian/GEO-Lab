@@ -1,0 +1,31 @@
+---
+import type { EvidenceLevel } from '@/lib/seo/site';
+import { EVIDENCE_LEVELS } from '@/lib/seo/site';
+
+type Props = {
+  level: EvidenceLevel;
+  compact?: boolean;
+};
+
+const info = EVIDENCE_LEVELS[Astro.props.level];
+const tone = EVIDENCE_LEVELS[Astro.props.level].tone;
+const toneClass =
+  tone === 'green'
+    ? 'border-brand-200 bg-brand-50 text-brand-700'
+    : tone === 'orange'
+      ? 'border-accent-300 bg-accent-100 text-accent-700'
+      : tone === 'blue'
+        ? 'border-[#c7d7f5] bg-[#eef3fd] text-[#1f4f9e]'
+        : 'border-line bg-surface text-ink-soft';
+---
+
+<span
+  class:list={['chip', toneClass, Astro.props.compact && '!px-2 !py-0.5 !text-[11px]']}
+  title={info.description}
+>
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    <path d="M6 1.2 10.4 3.6v4.8L6 10.8 1.6 8.4V3.6L6 1.2Z" stroke="currentColor" stroke-width="1.1"></path>
+    <path d="M4.2 6.1 5.4 7.3 7.9 4.8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"></path>
+  </svg>
+  {info.label}
+</span>

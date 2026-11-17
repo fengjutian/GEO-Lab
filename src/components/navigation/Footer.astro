@@ -1,0 +1,73 @@
+---
+import { NAV, SITE } from '@/lib/seo/site';
+
+const year = new Date().getFullYear();
+const columns = [
+  {
+    title: '内容',
+    links: NAV.filter((item) => ['/knowledge/', '/research/', '/cases/'].includes(item.href)),
+  },
+  {
+    title: '工具',
+    links: [
+      { title: '工具箱总览', href: '/tools/' },
+      { title: 'GEO 网站诊断', href: '/tools/site-audit/' },
+      { title: 'Embedding 相似度', href: '/tools/embedding/' },
+      { title: 'Chunking 切分实验', href: '/tools/chunking/' },
+      { title: '知识图谱', href: '/knowledge/graph/' },
+    ],
+  },
+  {
+    title: '关于',
+    links: [
+      { title: '研究方法论', href: '/about/#method' },
+      { title: '证据等级', href: '/about/#evidence' },
+      { title: '企业服务', href: '/services/' },
+      { title: 'RSS 订阅', href: '/rss.xml' },
+    ],
+  },
+];
+---
+
+<footer class="mt-24 border-t border-line bg-surface">
+  <div class="mx-auto max-w-6xl px-5 py-14 sm:px-8">
+    <div class="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <span class="flex size-8 items-center justify-center rounded-md bg-brand-800 text-[11px] font-semibold tracking-wider text-white">GL</span>
+          <span class="text-[15px] font-semibold tracking-tight text-ink">GEO Lab</span>
+        </div>
+        <p class="mt-4 max-w-xs text-sm leading-relaxed text-muted">
+          {SITE.nameZh}。研究 AI 如何发现、理解、检索和引用互联网内容，并把研究成果转化为工具与企业服务。
+        </p>
+        <p class="mt-4 font-mono text-[11px] tracking-[0.14em] text-brand-600 uppercase">
+          {SITE.slogan}
+        </p>
+      </div>
+
+      {
+        columns.map((column) => (
+          <div>
+            <h2 class="eyebrow">{column.title}</h2>
+            <ul class="mt-4 space-y-2.5">
+              {column.links.map((link) => (
+                <li>
+                  <a href={link.href} class="text-sm text-ink-soft hover:text-brand-700">
+                    {link.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 flex flex-col gap-3 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+      <p>© {year} {SITE.name}. 内容采用 CC BY 4.0 许可，代码采用 MIT 许可。</p>
+      <p class="max-w-xl leading-relaxed">
+        本站不承诺任何 AI 引用结果。所有优化建议标注证据等级，实验结论注明测试条件。
+      </p>
+    </div>
+  </div>
+</footer>

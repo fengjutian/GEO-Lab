@@ -1,0 +1,68 @@
+---
+/** 首页 Hero 右侧的“AI 引用链路”示意图：纯 HTML/CSS，无 JS，不打乱首屏 LCP。 */
+const steps = [
+  { label: 'Query', zh: '用户提问', detail: '意图 + 实体' },
+  { label: 'Retrieve', zh: '检索网页', detail: 'BM25 / 向量' },
+  { label: 'Rerank', zh: '重排片段', detail: '相关性打分' },
+  { label: 'Generate', zh: '生成答案', detail: '带来源引用' },
+];
+---
+
+<div class="relative overflow-hidden rounded-2xl border border-line bg-canvas p-5 shadow-[var(--shadow-card)]">
+  <div class="pointer-events-none absolute inset-0 grid-backdrop opacity-[0.55]"></div>
+
+  <div class="relative flex items-center justify-between">
+    <p class="font-mono text-[10px] tracking-[0.16em] text-muted uppercase">AI Answer Pipeline</p>
+    <span class="chip !border-brand-200 !bg-brand-50 !text-[10px] !text-brand-700">示意</span>
+  </div>
+
+  <ol class="relative mt-5 space-y-3">
+    {
+      steps.map((step, index) => (
+        <li class="group relative flex items-start gap-3 rounded-xl border border-line bg-surface/70 p-3">
+          <span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-800 font-mono text-[10px] text-white">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-[13px] font-medium text-ink">{step.zh}</span>
+              <span class="font-mono text-[10px] tracking-wide text-muted uppercase">{step.label}</span>
+            </div>
+            <p class="mt-0.5 text-[11px] text-muted">{step.detail}</p>
+          </div>
+          {index === steps.length - 1 && (
+            <span class="ml-auto self-center rounded-full border border-accent-300 bg-accent-100 px-2 py-0.5 font-mono text-[9px] tracking-wide text-accent-700 uppercase">
+              cited
+            </span>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+
+  <div class="relative mt-4 rounded-xl border border-line bg-canvas p-3">
+    <p class="font-mono text-[10px] tracking-[0.12em] text-muted uppercase">引用来源</p>
+    <div class="mt-2 space-y-1.5">
+      {
+        ['your-site.com/guide/geo', 'docs.example.com/rag', 'research.example.org/paper'].map((source, index) => (
+          <div class="flex items-center gap-2">
+            <span
+              class:list={[
+                'size-1.5 rounded-full',
+                index === 0 ? 'bg-accent-500' : 'bg-line-strong',
+              ]}
+            />
+            <span class="truncate font-mono text-[10px] text-muted">{source}</span>
+            {index === 0 && (
+              <span class="ml-auto shrink-0 font-mono text-[9px] text-accent-600">被引用</span>
+            )}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+
+  <p class="relative mt-3 text-[10px] leading-relaxed text-muted">
+    链路是公开技术原理的简化示意，不代表任何具体产品的实现顺序。
+  </p>
+</div>

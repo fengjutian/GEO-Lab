@@ -1,0 +1,252 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/common/Breadcrumbs.astro';
+import EvidenceBadge from '@/components/common/EvidenceBadge.astro';
+import { articleSchema, breadcrumbSchema } from '@/lib/schema/jsonld';
+import { formatDate } from '@/lib/utils/format';
+import type { EvidenceLevel } from '@/lib/seo/site';
+
+export type TocItem = { depth: number; slug: string; text: string };
+
+type StudyFact = { label: string; value: string };
+
+type Props = {
+  title: string;
+  description: string;
+  publishDate: Date;
+  updatedDate?: Date;
+  author: string;
+  category: string;
+  categoryHref: string;
+  sectionLabel: string;
+  sectionHref: string;
+  tags?: string[];
+  evidence: EvidenceLevel;
+  readingTime: number;
+  headings?: TocItem[];
+  references?: { title: string; url?: string; publisher?: string; date?: string }[];
+  studyFacts?: StudyFact[];
+  related?: { title: string; href: string; description?: string }[];
+  toolLinks?: { title: string; href: string; description?: string }[];
+};
+
+const props = Astro.props;
+const crumbs = [
+  { name: props.sectionLabel, href: props.sectionHref },
+  { name: props.title },
+];
+const toc = (props.headings ?? []).filter((h) => h.depth === 2 || h.depth === 3);
+
+const schemas = [
+  articleSchema({
+    title: props.title,
+    description: props.description,
+    url: Astro.url.pathname,
+    published: props.publishDate,
+    modified: props.updatedDate,
+    author: props.author,
+    section: props.category,
+    tags: props.tags,
+  }),
+  breadcrumbSchema([
+    { name: '首页', url: '/' },
+    { name: props.sectionLabel, url: props.sectionHref },
+    { name: props.title, url: Astro.url.pathname },
+  ]),
+];
+---
+
+<MainLayout
+  title={props.title}
+  description={props.description}
+  canonical={Astro.url.pathname}
+  type="article"
+  publishedTime={props.publishDate}
+  modifiedTime={props.updatedDate}
+  author={props.author}
+  tags={props.tags}
+  schemas={schemas}
+>
+  <article class="mx-auto max-w-6xl px-5 pt-10 pb-8 sm:px-8">
+    <Breadcrumbs items={crumbs} />
+
+    <header class="mt-7 max-w-3xl">
+      <div class="flex flex-wrap items-center gap-2">
+        <a href={props.categoryHref} class="chip chip-brand hover:border-brand-400">{props.category}</a>
+        <EvidenceBadge level={props.evidence} />
+        <span class="font-mono text-[10px] tracking-[0.12em] text-muted uppercase">
+          {props.readingTime} min read
+        </span>
+      </div>
+
+      <h1 class="display-title mt-5 text-3xl leading-tight sm:text-[2.5rem]">{props.title}</h1>
+      <p class="lede mt-4 max-w-2xl">{props.description}</p>
+
+      <dl class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-4 text-xs text-muted">
+        <div class="flex items-center gap-1.5">
+          <dt class="sr-only">作者</dt>
+          <dd class="font-medium text-ink-soft">{props.author}</dd>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <dt class="sr-only">发布</dt>
+          <dd>
+            发布于 <time datetime={props.publishDate.toISOString()}>{formatDate(props.publishDate)}</time>
+          </dd>
+        </div>
+        {
+          props.updatedDate && (
+            <div class="flex items-center gap-1.5">
+              <dt class="sr-only">更新</dt>
+              <dd>
+                更新于{' '}
+                <time datetime={props.updatedDate.toISOString()}>{formatDate(props.updatedDate)}</time>
+              </dd>
+            </div>
+          )
+        }
+      </dl>
+    </header>
+
+    {
+      props.studyFacts && props.studyFacts.length > 0 && (
+        <section
+          class="mt-8 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4"
+          aria-label="测试条件"
+        >
+          {props.studyFacts.map((fact) => (
+            <div class="bg-surface px-4 py-3">
+              <dt class="font-mono text-[10px] tracking-[0.12em] text-muted uppercase">{fact.label}</dt>
+              <dd class="mt-1 text-[13px] leading-snug text-ink">{fact.value}</dd>
+            </div>
+          ))}
+        </section>
+      )
+    }
+
+    <div class="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_240px]">
+      <div>
+        <div class="prose">
+          <slot />
+        </div>
+
+        {
+          props.references && props.references.length > 0 && (
+            <section class="mt-14 border-t border-line pt-8" aria-labelledby="references">
+              <h2 id="references" class="eyebrow">
+                参考资料
+              </h2>
+              <ol class="mt-4 space-y-3 text-sm">
+                {props.references.map((ref, index) => (
+                  <li class="flex gap-3 text-ink-soft">
+                    <span class="font-mono text-[11px] text-muted">[{index + 1}]</span>
+                    <span>
+                      {ref.url ? (
+                        <a
+                          href={ref.url}
+                          class="link-underline"
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                        >
+                          {ref.title}
+                        </a>
+                      ) : (
+                        ref.title
+                      )}
+                      <span class="text-muted">
+                        {ref.publisher ? ` — ${ref.publisher}` : ''}
+                        {ref.date ? `, ${ref.date}` : ''}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )
+        }
+
+        {
+          props.toolLinks && props.toolLinks.length > 0 && (
+            <section class="mt-12 rounded-xl border border-brand-200 bg-brand-50 p-6" aria-labelledby="related-tools">
+              <h2 id="related-tools" class="eyebrow !text-brand-700">
+                动手验证
+              </h2>
+              <p class="mt-2 text-sm text-brand-900/80">
+                上面的结论可以直接在浏览器里复现：本站工具全部在本地运行，不上传你的文本。
+              </p>
+              <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+                {props.toolLinks.map((tool) => (
+                  <li>
+                    <a
+                      href={tool.href}
+                      class="group flex flex-col rounded-lg border border-brand-200 bg-canvas px-4 py-3 transition-colors hover:border-brand-400"
+                    >
+                      <span class="text-sm font-medium text-brand-800">{tool.title} →</span>
+                      {tool.description && (
+                        <span class="mt-0.5 text-xs leading-relaxed text-muted">{tool.description}</span>
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        }
+      </div>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-24 space-y-8">
+          {
+            toc.length > 1 && (
+              <nav aria-label="本文目录">
+                <p class="eyebrow">本文目录</p>
+                <ul class="mt-3 space-y-2 border-l border-line">
+                  {toc.map((item) => (
+                    <li>
+                      <a
+                        href={`#${item.slug}`}
+                        class:list={[
+                          'block border-l border-transparent py-0.5 pl-3 text-[13px] leading-snug text-muted transition-colors hover:text-brand-700',
+                          item.depth === 3 && 'pl-6 text-[12px]',
+                        ]}
+                      >
+                        {item.text}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )
+          }
+
+          <div class="rounded-xl border border-line bg-surface p-4">
+            <p class="eyebrow">证据等级</p>
+            <div class="mt-2">
+              <EvidenceBadge level={props.evidence} />
+            </div>
+            <p class="mt-2 text-xs leading-relaxed text-muted">
+              本文结论的可核验程度。GEO Lab 要求区分官方文档、论文、自有实验与经验判断。
+            </p>
+            <a href="/about/#evidence" class="mt-2 inline-block text-xs text-brand-700 link-underline">查看分级标准</a>
+          </div>
+
+          {
+            props.related && props.related.length > 0 && (
+              <div>
+                <p class="eyebrow">延伸阅读</p>
+                <ul class="mt-3 space-y-3">
+                  {props.related.map((item) => (
+                    <li>
+                      <a href={item.href} class="text-[13px] leading-snug text-ink-soft hover:text-brand-700">
+                        {item.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          }
+        </div>
+      </aside>
+    </div>
+  </article>
+</MainLayout>
