@@ -8,10 +8,9 @@ node_modules/
 .pnpm-store/
 
 # logs
+*.log
 npm-debug.log*
 pnpm-debug.log*
-server.log
-server.err.log
 
 # local monitoring database (SQLite)
 data/
@@ -31,4 +30,3 @@ public/pagefind/
 .shots/
 build.log
 check.log
-
