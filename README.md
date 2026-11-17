@@ -13,14 +13,16 @@
 ```bash
 pnpm install
 pnpm dev        # http://localhost:4321
-pnpm build      # 静态构建 + Pagefind 索引
-pnpm preview    # 预览构建产物
+pnpm build      # Netlify 适配器构建 + Pagefind 索引
+pnpm preview    # netlify dev：本地按 Netlify 的方式跑静态页 + SSR Function
 pnpm check      # astro check（TypeScript / Astro 类型检查）
 pnpm check:site # 构建产物校验：SEO、JSON-LD、站内链接、内容 frontmatter
 pnpm verify     # build + check:site 一条命令
 ```
 
-Node ≥ 20。包管理器使用 pnpm（`pnpm-workspace.yaml` 中显式批准了 `esbuild` 与 `sharp` 的构建脚本）。
+Node 版本要求：构建与运行 ≥ 22.13（`node:sqlite` 从该版本起不再需要 `--experimental-sqlite`）。
+
+包管理器使用 pnpm（`pnpm-workspace.yaml` 中显式批准了 `esbuild` 与 `sharp` 的构建脚本）。
 
 ## 界面预览
 
@@ -59,6 +61,7 @@ RAG 流程实验（BM25 召回 → 重排 → 上下文装配 → 抽取式引�
 | 内容 | Content Collections + Markdown | 三类集合：knowledge / research / cases |
 | 搜索 | Pagefind | 构建后生成索引，纯前端检索 |
 | SEO | 自建 `lib/seo` + `lib/schema` | canonical / OG / RSS / JSON-LD / sitemap |
+| 部署 | Netlify（`@astrojs/netlify`） | 静态页走 CDN，`/benchmark` 与 `/api` 走 SSR Function |
 
 刻意没有引入的重依赖：Cytoscape（知识图谱用自写力导向 SVG）、ECharts、组件库。基础组件全部是本仓库内的 Astro/React 组件，避免出现第二套设计语言。
 
@@ -115,7 +118,7 @@ scripts/check-site.mjs  构建产物与内容校验
 
 ## 可见性监测工作台（V2）
 
-`/benchmark/` 与 `/api/benchmark/*` 是站点里唯一按需渲染（Node 服务端）的部分。数据存放在本地 SQLite（`data/benchmark.db`），不经过第三方。
+`/benchmark/` 与 `/api/benchmark/*` 是站点里唯一按需渲染（服务端）的部分。数据存放在 SQLite，不经过第三方：本地默认 `data/benchmark.db`，Netlify 上写入函数实例的 `/tmp/benchmark.db`。
 
 **能做什么**
 
@@ -140,9 +143,9 @@ GEO_LLM_EXTRA_BODY={"temperature":0}          # 可选：供应商特定参数
 **运行方式**
 
 ```bash
-pnpm build                       # 产出 dist/client（静态页）与 dist/server（按需路由）
-pnpm preview                     # = node ./dist/server/entry.mjs
-node scripts/test-benchmark.mjs http://127.0.0.1:4321   # 端到端 API 测试
+pnpm build                       # 产出 dist/（静态页）与 .netlify/v1/functions/ssr（按需路由）
+pnpm preview                     # netlify dev，本地验证静态页 + SSR Function
+node scripts/test-benchmark.mjs http://127.0.0.1:8888   # 端到端 API 测试（指向 netlify dev 的端口）
 pnpm benchmark:reset             # 清空本地监测数据库（需确认）
 ```
 
@@ -151,6 +154,29 @@ pnpm benchmark:reset             # 清空本地监测数据库（需确认）
 - 自动模式只调用 chat 端点，**不包含真实网页检索**：它衡量的是“模型在参数化知识下是否提及该品牌”，属于无检索基线，不等于 AI 搜索结果中的引用情况。要测后者，请用手工记录模式，或在 `GEO_LLM_BASE_URL` 指向带检索能力的端点。
 - 没有账号体系，请部署在可信网络内或自行加反向代理鉴权。
 - 不做显著性检验。单次运行只是快照，趋势需要重复观测。
+
+## 部署（Netlify）
+
+仓库自带 `netlify.toml`：Git 仓库连到 Netlify 后，推送到 `main` 即按配置自动构建。
+
+- 构建命令 `pnpm run build`，发布目录 `dist`
+- `NODE_VERSION = "22"`：`node:sqlite` 需要 Node ≥ 22.13
+- `SITE_URL` 决定 canonical / sitemap / JSON-LD 里的绝对地址，换域名只改这一处（模板默认 `https://geo-lab-site.netlify.app`）
+
+产物结构（`@astrojs/netlify`）：
+
+```text
+dist/                        预渲染页面、_astro 资源、pagefind 索引、404.html
+.netlify/v1/functions/ssr/   /benchmark/* 与 /api/benchmark/* 的按需渲染 Function
+```
+
+> 之前整站 404 的原因：项目用的是 `@astrojs/node` standalone 适配器，静态文件在 `dist/client`、
+> 服务端在 `dist/server`，而 Netlify 发布的是 `dist/`。根目录没有 `index.html`，于是每个路径都落到
+> Netlify 自己的 404 页面。换成 Netlify 适配器后静态页回到 `dist/` 根目录，问题消失。
+
+**数据持久化**：Netlify Function 只有 `/tmp` 可写，且实例回收即清空。可见性监测的数据在 Netlify 上
+属于「单次实例内有效」——创建项目、记录、导出都能用，冷启动后不保证还在。需要长期保存请接
+Netlify Blobs 或外部数据库（Turso / Postgres），或把工作台单独部署到带持久磁盘的 Node 主机。
 
 ## 设计约束（写进代码里）
 

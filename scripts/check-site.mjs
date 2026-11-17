@@ -9,8 +9,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 
 const ROOT = process.cwd();
-// 使用 node 适配器后，预渲染页面输出在 dist/client
-const DIST = resolve(ROOT, 'dist/client');
+// Netlify 适配器：静态页直接输出到 dist/，SSR 路由单独编译成 .netlify 下的 Function
+const DIST = resolve(ROOT, 'dist');
 const EVIDENCE = new Set(['official', 'paper', 'experiment', 'analysis', 'field']);
 const SECTIONS = new Set(['knowledge', 'research', 'cases']);
 /** 按需渲染（Node 服务端）的路由，不存在预渲染 HTML 文件 */

@@ -5,7 +5,8 @@ export const SITE = {
   name: 'GEO Lab',
   legalName: 'GEO Lab · Generative Engine Optimization Laboratory',
   nameZh: '生成式引擎优化实验室',
-  url: 'https://geolab.dev',
+  // 与 astro.config.mjs 的 site 保持同一个来源：部署前设置 SITE_URL 即可整体切换域名。
+  url: process.env.SITE_URL ?? 'https://geolab.dev',
   slogan: 'Research. Optimize. Get Cited.',
   tagline: '让 AI 看见你的内容。',
   taglineEn: 'Make Your Content Visible to AI.',

@@ -3,22 +3,26 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.28.5",
+  "engines": {
+    "node": ">=22.13"
+  },
   "description": "GEO Lab — Generative Engine Optimization Laboratory",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build && pagefind --site dist/client",
-    "preview": "node ./dist/server/entry.mjs",
-    "search:index": "pagefind --site dist/client",
+    "build": "astro build && pagefind --site dist",
+    "preview": "npx --yes netlify-cli dev",
+    "search:index": "pagefind --site dist",
     "benchmark:reset": "node scripts/reset-benchmark.mjs",
     "check": "astro check",
     "check:site": "node scripts/check-site.mjs",
-    "verify": "astro build && pagefind --site dist/client && node scripts/check-site.mjs",
+    "verify": "astro build && pagefind --site dist && node scripts/check-site.mjs",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.6",
-    "@astrojs/node": "^9.5.5",
+    "@astrojs/netlify": "^6.6.5",
     "@astrojs/react": "^4.4.1",
     "@astrojs/rss": "^4.0.12",
     "@astrojs/sitemap": "^3.6.0",

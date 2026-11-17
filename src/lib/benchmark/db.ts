@@ -13,7 +13,11 @@ import type { Intent, Observation, Project, Question, Run, RunStatus } from './t
 let database: DatabaseSync | null = null;
 
 function dbPath(): string {
-  return resolve(process.env.GEO_BENCHMARK_DB ?? 'data/benchmark.db');
+  const configured = process.env.GEO_BENCHMARK_DB;
+  if (configured) return resolve(configured);
+  // Serverless（Netlify Function / AWS Lambda）里只有 /tmp 可写，部署包目录是只读的。
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY) return '/tmp/benchmark.db';
+  return resolve('data/benchmark.db');
 }
 
 export function getDb(): DatabaseSync {

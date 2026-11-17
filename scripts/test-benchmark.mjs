@@ -2,14 +2,14 @@
 /**
  * 可见性工作台端到端测试（需要先启动服务端）。
  *
- *   GEO_BENCHMARK_DB=data/test-benchmark.db PORT=4322 node ./dist/server/entry.mjs
- *   node scripts/test-benchmark.mjs http://127.0.0.1:4322
+ *   pnpm preview                                       # netlify dev，默认 http://localhost:8888
+ *   node scripts/test-benchmark.mjs http://127.0.0.1:8888
  *
  * 覆盖：示例项目创建、指标口径、手工记录、问题集保存、导出、自动运行降级、删除。
  * 不调用真实模型：未配置密钥时应明确返回 400 而不是静默失败。
  */
 
-const base = (process.argv[2] ?? 'http://127.0.0.1:4322').replace(/\/$/, '');
+const base = (process.argv[2] ?? 'http://127.0.0.1:8888').replace(/\/$/, '');
 let failures = 0;
 
 function check(name, condition, detail = '') {
