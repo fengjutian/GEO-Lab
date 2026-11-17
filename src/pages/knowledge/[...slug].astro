@@ -1,0 +1,52 @@
+---
+import { render } from 'astro:content';
+import ArticleLayout from '@/layouts/ArticleLayout.astro';
+import { getKnowledge, readingTime } from '@/lib/content/queries';
+import { TOOLS } from '@/lib/tools/registry';
+
+export async function getStaticPaths() {
+  const knowledge = await getKnowledge();
+  return knowledge.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry, all: knowledge },
+  }));
+}
+
+const { entry, all } = Astro.props;
+const { Content, headings } = await render(entry);
+
+const related = entry.data.related
+  .map((id) => all.find((candidate) => candidate.id === id))
+  .filter((candidate): candidate is (typeof all)[number] => Boolean(candidate))
+  .map((candidate) => ({
+    title: candidate.data.title,
+    href: `/knowledge/${candidate.id}/`,
+    description: candidate.data.description,
+  }));
+
+const toolLinks = entry.data.tools
+  .map((slug) => TOOLS.find((tool) => tool.slug === slug))
+  .filter((tool): tool is (typeof TOOLS)[number] => Boolean(tool))
+  .map((tool) => ({ title: tool.title, href: tool.href, description: tool.description }));
+---
+
+<ArticleLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  publishDate={entry.data.publishDate}
+  updatedDate={entry.data.updatedDate}
+  author={entry.data.author}
+  category={entry.data.category}
+  categoryHref={`/knowledge/#${encodeURIComponent(entry.data.category)}`}
+  sectionLabel="知识库"
+  sectionHref="/knowledge/"
+  tags={entry.data.tags}
+  evidence={entry.data.evidence}
+  readingTime={readingTime(entry)}
+  headings={headings}
+  references={entry.data.references}
+  related={related}
+  toolLinks={toolLinks}
+>
+  <Content />
+</ArticleLayout>

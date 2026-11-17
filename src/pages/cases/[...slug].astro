@@ -1,0 +1,66 @@
+---
+import { render } from 'astro:content';
+import ArticleLayout from '@/layouts/ArticleLayout.astro';
+import { getCases, readingTime } from '@/lib/content/queries';
+import { TOOLS } from '@/lib/tools/registry';
+
+export async function getStaticPaths() {
+  const cases = await getCases();
+  return cases.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry, all: cases },
+  }));
+}
+
+const { entry, all } = Astro.props;
+const { Content, headings } = await render(entry);
+
+const scopeLabels = {
+  'technical-audit': '技术结构检查',
+  'content-audit': '内容可理解性检查',
+  'visibility-test': 'AI 可见性测试',
+} as const;
+
+const studyFacts = [
+  { label: '检查范围', value: scopeLabels[entry.data.scope] },
+  ...(entry.data.site ? [{ label: '站点', value: entry.data.site }] : []),
+  ...(entry.data.industry ? [{ label: '行业', value: entry.data.industry }] : []),
+  ...(entry.data.timeframe ? [{ label: '周期', value: entry.data.timeframe }] : []),
+];
+
+const related = entry.data.related
+  .map((id) => all.find((candidate) => candidate.id === id) ?? null)
+  .filter((candidate): candidate is (typeof all)[number] => Boolean(candidate))
+  .map((candidate) => ({
+    title: candidate.data.title,
+    href: `/cases/${candidate.id}/`,
+    description: candidate.data.description,
+  }));
+
+const toolLinks = entry.data.tools
+  .map((slug) => TOOLS.find((tool) => tool.slug === slug))
+  .filter((tool): tool is (typeof TOOLS)[number] => Boolean(tool))
+  .map((tool) => ({ title: tool.title, href: tool.href, description: tool.description }));
+---
+
+<ArticleLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  publishDate={entry.data.publishDate}
+  updatedDate={entry.data.updatedDate}
+  author={entry.data.author}
+  category={entry.data.category}
+  categoryHref="/cases/"
+  sectionLabel="案例库"
+  sectionHref="/cases/"
+  tags={entry.data.tags}
+  evidence={entry.data.evidence}
+  readingTime={readingTime(entry)}
+  headings={headings}
+  references={entry.data.references}
+  related={related}
+  toolLinks={toolLinks}
+  studyFacts={studyFacts}
+>
+  <Content />
+</ArticleLayout>

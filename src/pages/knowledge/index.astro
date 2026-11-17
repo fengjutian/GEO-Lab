@@ -1,0 +1,158 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import PageHeader from '@/components/common/PageHeader.astro';
+import SectionHeader from '@/components/common/SectionHeader.astro';
+import ArticleCard from '@/components/articles/ArticleCard.astro';
+import { getKnowledge, readingTime } from '@/lib/content/queries';
+import { breadcrumbSchema } from '@/lib/schema/jsonld';
+
+const knowledge = await getKnowledge();
+const featured = knowledge.find((entry) => entry.data.featured) ?? knowledge[0];
+const others = knowledge.filter((entry) => entry.id !== featured?.id);
+
+const categories = [...new Set(knowledge.map((entry) => entry.data.category))];
+const grouped = categories
+  .map((category) => ({
+    category,
+    entries: knowledge.filter((entry) => entry.data.category === category),
+  }))
+  .filter((group) => group.entries.length > 0);
+
+const schemas = [
+  breadcrumbSchema([
+    { name: '首页', url: '/' },
+    { name: '知识库', url: '/knowledge/' },
+  ]),
+];
+---
+
+<MainLayout
+  title="GEO 知识库"
+  description="按技术依赖顺序组织的 GEO 知识库：AI 搜索原理、RAG 与检索、Embedding、内容结构、实体与知识图谱、引用机制与评估方法。每条结论标注证据等级。"
+  canonical="/knowledge/"
+  schemas={schemas}
+>
+  <PageHeader
+    eyebrow="Knowledge"
+    title="GEO 知识库"
+    titleEn="From query to citation, explained technically."
+    description="13 篇技术文章，按「机制 → 实现 → 实践」的顺序组织。我们不写 GEO 速成技巧，而是解释检索与生成链路里每一个可被内容影响的环节。"
+    crumb={[{ name: '知识库', href: '/knowledge/' }]}
+    stats={[
+      { label: 'Articles', value: String(knowledge.length) },
+      { label: 'Categories', value: String(categories.length) },
+    ]}
+  />
+
+  <div class="mx-auto max-w-6xl px-5 py-12 sm:px-8">
+    {
+      featured && (
+        <section aria-labelledby="featured">
+          <h2 id="featured" class="sr-only">
+            推荐阅读
+          </h2>
+          <ArticleCard
+            variant="featured"
+            title={featured.data.title}
+            description={featured.data.description}
+            href={`/knowledge/${featured.id}/`}
+            category={featured.data.category}
+            date={featured.data.publishDate}
+            evidence={featured.data.evidence}
+            readingTime={readingTime(featured)}
+            label="从这里开始"
+          />
+        </section>
+      )
+    }
+
+    <!-- 学习路径 -->
+    <section class="mt-14">
+      <SectionHeader
+        eyebrow="Learning Path"
+        title="推荐学习路径"
+        description="从概念到实现，顺序阅读约需 2 小时；也可以按需跳到某个环节。"
+      />
+      <ol class="mt-6 divide-y divide-line border-y border-line">
+        {
+          knowledge.map((entry, index) => (
+            <li>
+              <a
+                href={`/knowledge/${entry.id}/`}
+                class="group flex items-start gap-4 py-4 transition-colors hover:bg-surface/60"
+              >
+                <span class="mt-0.5 w-6 shrink-0 font-mono text-[11px] text-brand-500">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="flex flex-wrap items-baseline gap-2">
+                    <span class="text-[15px] font-medium text-ink group-hover:text-brand-800">
+                      {entry.data.title}
+                    </span>
+                    <span class="chip !py-0 !text-[10px]">{entry.data.category}</span>
+                  </span>
+                  <span class="mt-1 block text-[13px] leading-relaxed text-muted">
+                    {entry.data.description}
+                  </span>
+                </span>
+                <span class="hidden shrink-0 font-mono text-[10px] text-muted sm:block">
+                  {readingTime(entry)} min
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <!-- 分类浏览 -->
+    <section class="mt-16">
+      <SectionHeader
+        eyebrow="Browse"
+        title="按主题浏览"
+        description="分类对应 GEO 技术栈的不同层：检索、表示、内容、实体、评估。"
+      />
+      <div class="mt-6 flex flex-wrap gap-2">
+        {
+          categories.map((category) => (
+            <a href={`#${encodeURIComponent(category)}`} class="chip hover:border-brand-300 hover:text-brand-700">
+              {category}
+            </a>
+          ))
+        }
+        <a href="/knowledge/graph/" class="chip chip-brand hover:border-brand-400">
+          知识图谱视图 →
+        </a>
+      </div>
+
+      <div class="mt-10 space-y-12">
+        {
+          grouped.map((group) => (
+            <div id={encodeURIComponent(group.category)}>
+              <h3 class="display-title text-xl">{group.category}</h3>
+              <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {group.entries.map((entry) => (
+                  <ArticleCard
+                    title={entry.data.title}
+                    description={entry.data.description}
+                    href={`/knowledge/${entry.id}/`}
+                    category={null}
+                    date={entry.data.publishDate}
+                    evidence={entry.data.evidence}
+                    tags={entry.data.tags}
+                  />
+                ))}
+              </div>
+            </div>
+          ))
+        }
+      </div>
+
+      {
+        others.length === 0 && (
+          <p class="mt-8 text-sm text-muted">更多文章正在撰写中。</p>
+        )
+      }
+    </section>
+  </div>
+</MainLayout>
