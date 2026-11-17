@@ -48,6 +48,12 @@ export const NAV: NavItem[] = [
     description: '论文、实验与技术趋势',
   },
   { title: '工具箱', titleEn: 'Tools', href: '/tools/', description: '浏览器端 GEO 分析与实验工具' },
+  {
+    title: '可见性',
+    titleEn: 'Benchmark',
+    href: '/benchmark/',
+    description: '固定问题集 + 多模型记录的 AI 可见性监测',
+  },
   { title: '案例库', titleEn: 'Cases', href: '/cases/', description: '诊断与优化案例记录' },
   { title: '企业服务', titleEn: 'Services', href: '/services/', description: 'GEO 诊断、优化与监测' },
   { title: '关于', titleEn: 'About', href: '/about/', description: '研究方法论与团队' },

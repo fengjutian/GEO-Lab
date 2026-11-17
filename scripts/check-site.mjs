@@ -9,9 +9,12 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 
 const ROOT = process.cwd();
-const DIST = resolve(ROOT, 'dist');
+// 使用 node 适配器后，预渲染页面输出在 dist/client
+const DIST = resolve(ROOT, 'dist/client');
 const EVIDENCE = new Set(['official', 'paper', 'experiment', 'analysis', 'field']);
 const SECTIONS = new Set(['knowledge', 'research', 'cases']);
+/** 按需渲染（Node 服务端）的路由，不存在预渲染 HTML 文件 */
+const SERVER_ROUTES = [/^\/benchmark(\/|$)/, /^\/api\/benchmark(\/|$)/];
 
 const errors = [];
 const warnings = [];
@@ -113,6 +116,7 @@ for (const page of pages) {
   for (const match of html.matchAll(/href="(\/[^"]*)"/g)) {
     const href = decode(match[1]);
     if (href.startsWith('/pagefind') || href.startsWith('/_astro')) continue;
+    if (SERVER_ROUTES.some((pattern) => pattern.test(href))) continue;
     const target = await resolveInternalLink(href);
     if (!target) continue;
     if (!linkCache.has(target)) linkCache.set(target, await fileExists(join(DIST, target)));

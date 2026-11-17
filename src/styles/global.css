@@ -231,6 +231,8 @@
 
   /* 工具工作台：深色数据区，与主站白底形成对比 */
   .workbench {
+    /* 让原生控件（select / range / date）跟随深色主题 */
+    color-scheme: dark;
     background:
       radial-gradient(ellipse 70% 50% at 20% 0%, rgb(47 122 99 / 0.22), transparent 70%),
       radial-gradient(ellipse 60% 60% at 90% 10%, rgb(224 102 31 / 0.14), transparent 70%),

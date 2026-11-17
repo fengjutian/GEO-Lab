@@ -113,7 +113,7 @@ export default function BenchmarkDashboard() {
 
   return (
     <WorkbenchShell>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Panel title="项目" hint={loading ? '加载中…' : `${projects.length} 个`}>
           {projects.length === 0 && !loading ? (
             <div className="rounded-lg border border-dashed border-white/15 px-4 py-8 text-center">
@@ -210,6 +210,14 @@ export default function BenchmarkDashboard() {
               </label>
               <button type="submit" disabled={busy} className="btn btn-accent w-full !py-2 !text-xs disabled:opacity-50">
                 {busy ? '创建中…' : '创建项目并生成 20 个问题'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void createDemo()}
+                disabled={busy}
+                className="w-full rounded-lg border border-dashed border-white/20 py-1.5 text-[11px] text-white/50 hover:border-brand-400 hover:text-white disabled:opacity-40"
+              >
+                或创建示例项目（演示数据）
               </button>
             </form>
           </Panel>

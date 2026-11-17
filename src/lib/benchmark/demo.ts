@@ -1,4 +1,4 @@
-import { addObservation, createProject, createRun, finishRun, replaceQuestions } from './db';
+import { addObservation, createProject, createRun, finishRun, getProject, replaceQuestions } from './db';
 import { brandSentencePosition, detectMentions, extractCitations } from './metrics';
 import { defaultQuestions } from './questions';
 import type { Project } from './types';
@@ -61,5 +61,5 @@ export function seedDemoProject(): Project {
   });
 
   finishRun(run.id, 'manual', note);
-  return project;
+  return getProject(project.id)!;
 }

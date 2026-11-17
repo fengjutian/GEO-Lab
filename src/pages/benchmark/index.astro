@@ -1,0 +1,113 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import PageHeader from '@/components/common/PageHeader.astro';
+import BenchmarkDashboard from '@/features/benchmark/BenchmarkDashboard';
+
+// 监测数据需要服务端读写，因此本页不做预渲染（其余页面仍是静态产物）。
+export const prerender = false;
+
+const method = [
+  {
+    title: '固定问题集',
+    body: '每个项目 20 个问题，按认知、比较、决策、问题排查四种意图分层。问题集一旦用于基线，就不应该在中途改动；改动后必须重新建立基线。',
+  },
+  {
+    title: '逐条记录，不做汇总',
+    body: '每条记录保留原始答案、来源链接、提及与否、首次出现句号与记录方式（自动 / 手工）。汇总只是这些字段的推导结果，删除任一记录都会改变指标。',
+  },
+  {
+    title: '口径固定',
+    body: '提及率 = 提及品牌的答案数 / 记录数；引用率 = 引用中含本站域名的记录数 / 记录数；来源份额 = 品牌被提及次数 /（品牌 + 竞品被提及次数）；平均位置 = 品牌首次出现句序号均值。',
+  },
+  {
+    title: '自动模式的真实含义',
+    body: '自动运行调用的是 OpenAI 兼容的 chat 端点，不包含真实网页检索。它衡量的是“模型在参数化知识下是否提及该品牌”，属于无检索基线，不等于 AI 搜索结果的引用情况。',
+  },
+  {
+    title: '手工模式同样有效',
+    body: '在 ChatGPT、Perplexity 等产品里提问后，把完整答案（含来源列表）粘贴进来，系统会用同一套口径计算指标。这是当前最接近真实使用场景的测量方式。',
+  },
+  {
+    title: '样本与误差',
+    body: '生成式答案不稳定，单次运行只能算快照。要判断趋势，需要在同一模型版本下重复观测，并记录时间、时区与账号/地区差异。工作台不做显著性检验。',
+  },
+];
+---
+
+<MainLayout
+  title="AI 可见性监测"
+  description="GEO Lab 可见性监测工作台：为品牌建立固定问题集，记录模型回答中是否提及品牌、是否引用本站来源，并按提及率、引用率与来源份额统计。支持自动调用兼容端点或手工粘贴答案。"
+  canonical="/benchmark/"
+  schemas={[]}
+>
+  <PageHeader
+    eyebrow="Benchmark"
+    title="AI 可见性监测"
+    titleEn="Record what the model actually said. Then measure it."
+    description="为品牌建立 20 个固定问题，逐条记录模型回答中的品牌提及与来源引用。自动模式需要配置兼容端点；没有密钥时，手工粘贴答案同样可用。"
+    crumb={[{ name: '可见性监测', href: '/benchmark/' }]}
+    stats={[
+      { label: '问题集', value: '20 / 项目' },
+      { label: '数据', value: 'SQLite' },
+    ]}
+  />
+
+  <div class="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+    <BenchmarkDashboard client:only="react" />
+
+    <section class="mt-14 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div class="prose">
+        <h2>测量方法</h2>
+        <p>
+          生成式搜索的结果有两种完全不同的测量对象：<strong>结构</strong>（页面是否能被抓取、理解）与<strong>可见性</strong>
+          （在具体问题下模型是否提及、是否引用）。本站的
+          <a href="/tools/site-audit/">网站诊断</a>负责前者，这个工作台负责后者。两者不能互相替代。
+        </p>
+        <h2>六条规则</h2>
+        <ol>
+          {method.map((item) => (
+            <li>
+              <strong>{item.title}。</strong>
+              {item.body}
+            </li>
+          ))}
+        </ol>
+        <h2>不能从这里得到的结论</h2>
+        <p>
+          工作台不会给出“AI 引用概率”“排名提升幅度”或“优化后提升 X%”。它能给出的是：在特定模型、特定问题集、特定时间下，
+          品牌被提及与来源被引用的比例。跨项目比较没有意义，因为问题集、模型与时间都不同。
+        </p>
+      </div>
+
+      <aside class="space-y-4">
+        <div class="rounded-xl border border-line bg-surface p-5">
+          <p class="eyebrow">自托管说明</p>
+          <ul class="mt-3 space-y-2 text-[12px] leading-relaxed text-muted">
+            <li>· 数据存放在服务端 <code>data/benchmark.db</code>（SQLite），不经过第三方。</li>
+            <li>· 内容页仍是静态产物；只有本页与 <code>/api/benchmark</code> 需要 Node 运行。</li>
+            <li>· 当前没有账号体系：请部署在受信任的网络内，或自行加反向代理鉴权。</li>
+          </ul>
+        </div>
+
+        <div class="rounded-xl border border-brand-200 bg-brand-50 p-5">
+          <p class="font-mono text-[10px] tracking-[0.12em] text-brand-700 uppercase">配置自动运行</p>
+          <pre class="mt-2 overflow-x-auto rounded-lg border border-brand-200 bg-canvas px-3 py-2 font-mono text-[10px] leading-relaxed text-brand-900">GEO_LLM_API_KEY=...
+GEO_LLM_BASE_URL=https://api.openai.com/v1
+GEO_LLM_MODEL=gpt-4o-mini</pre>
+          <p class="mt-2 text-[11px] leading-relaxed text-brand-900/70">
+            可选 <code>GEO_LLM_EXTRA_BODY</code> 传入供应商特定参数（例如检索类 API 的搜索选项）。
+          </p>
+        </div>
+
+        <div class="rounded-xl border border-line p-5">
+          <p class="eyebrow">相关阅读</p>
+          <ul class="mt-2 space-y-2 text-[13px]">
+            <li><a href="/knowledge/measuring-geo-effects/" class="hover:text-brand-700">GEO 效果如何量化评估</a></li>
+            <li><a href="/research/citation-experiment-protocol/" class="hover:text-brand-700">实验协议：多系统引用差异</a></li>
+            <li><a href="/knowledge/why-ai-cites-a-site/" class="hover:text-brand-700">AI 为什么引用某个网站</a></li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+  </div>
+</MainLayout>

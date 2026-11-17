@@ -1,0 +1,23 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/common/Breadcrumbs.astro';
+import BenchmarkProject from '@/features/benchmark/BenchmarkProject';
+
+export const prerender = false;
+
+const id = Astro.params.id ?? '';
+---
+
+<MainLayout
+  title="可见性监测项目"
+  description="GEO Lab 可见性监测项目详情：提及率、引用率、来源份额、意图分层与逐条记录。"
+  canonical={`/benchmark/${id}/`}
+  noindex
+>
+  <div class="mx-auto max-w-6xl px-5 pt-8 pb-10 sm:px-8">
+    <Breadcrumbs items={[{ name: '可见性监测', href: '/benchmark/' }, { name: '项目详情' }]} />
+    <div class="mt-6">
+      <BenchmarkProject client:only="react" id={id} />
+    </div>
+  </div>
+</MainLayout>
