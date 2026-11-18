@@ -126,7 +126,25 @@ scripts/check-site.mjs  构建产物与内容校验
 
 ## 可见性监测工作台（V2）
 
-`/benchmark/` 与 `/api/benchmark/*` 是站点里唯一按需渲染（服务端）的部分。数据存放在 SQLite，不经过第三方：本地默认 `data/benchmark.db`，Netlify 上写入函数实例的 `/tmp/benchmark.db`。
+`/benchmark/` 与 `/api/benchmark/*` 是站点里唯一按需渲染（服务端）的部分。数据存放在 SQLite，不经过第三方：本地默认 `data/benchmark.db`。
+
+**存储后端（可选远端）**
+
+同一套 SQL 跑在两种后端上，由环境变量选择：
+
+| 变量 | 作用 |
+| --- | --- |
+| `GEO_BENCHMARK_DB_URL` | libSQL / Turso 端点（`libsql://…` 或 `https://…`）。设置后走 HTTP pipeline，纯 `fetch`，无原生依赖 |
+| `GEO_BENCHMARK_DB_TOKEN` | 上面端点对应的 token |
+| `GEO_BENCHMARK_DB` | 本地 SQLite 文件路径（默认 `data/benchmark.db`；Serverless 环境自动落到 `/tmp/benchmark.db`） |
+
+```bash
+# Netlify Function 这类只有 /tmp 可写的环境：接远端库才能长期保存
+GEO_BENCHMARK_DB_URL=libsql://your-db.turso.io
+GEO_BENCHMARK_DB_TOKEN=eyJ...
+```
+
+注意：远端模式**没有事务**（每条语句单独一个 pipeline 请求），迁移与写入都是幂等的单语句操作；删除项目时会显式清理子表，不依赖外键级联。
 
 **能做什么**
 
@@ -218,6 +236,12 @@ GEO_TEST_CAPTURE_TOKEN=test-capture-token GEO_TEST_ADMIN_TOKEN=test-admin-token 
 ```
 
 省略 `GEO_TEST_ADMIN_TOKEN` 时鉴权断言会跳过（服务端也没开鉴权的情况下测试依然全绿）。
+
+远端存储另有一套测试，会自行拉起 mock libSQL 与 dev server：
+
+```bash
+pnpm test:store
+```
 
 测试会自行启动 `scripts/mock-llm.mjs`（端口 4399）来验证并行调度与一致性矩阵，不消耗真实模型额度。
 `pnpm benchmark:reset` 清空本地监测数据库（需确认）。

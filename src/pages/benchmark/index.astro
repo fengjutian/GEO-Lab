@@ -126,7 +126,8 @@ const method = [
         <div class="rounded-xl border border-line bg-surface p-5">
           <p class="eyebrow">自托管说明</p>
           <ul class="mt-3 space-y-2 text-[12px] leading-relaxed text-muted">
-            <li>· 数据存放在服务端 SQLite（本地 <code>data/benchmark.db</code>；Netlify 上为函数实例的 <code>/tmp</code>），不经过第三方。</li>
+            <li>· 数据存放在服务端 SQLite（本地 <code>data/benchmark.db</code>；Netlify 上默认落到函数实例的 <code>/tmp</code>），不经过第三方。</li>
+            <li>· 设置 <code>GEO_BENCHMARK_DB_URL</code> + <code>GEO_BENCHMARK_DB_TOKEN</code> 可切到远端 libSQL/Turso，长期存档请用它。</li>
             <li>· 内容页仍是静态产物；只有本页与 <code>/api/benchmark</code> 需要服务端运行时。</li>
             <li>· Netlify Function 的 <code>/tmp</code> 会随实例回收清空：适合演示与短期记录，长期存档需要接外部数据库。</li>
             <li>· 设置 <code>GEO_BENCHMARK_ADMIN_TOKEN</code> 后，工作台页面与数据接口需要先登录（HttpOnly 会话 Cookie，7 天）。</li>
