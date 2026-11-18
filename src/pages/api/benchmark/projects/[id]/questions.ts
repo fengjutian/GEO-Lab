@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro';
+﻿import type { APIRoute } from 'astro';
 import { getProject, replaceQuestions } from '@/lib/benchmark/db';
 import { INTENTS, type Intent } from '@/lib/benchmark/types';
 import { badRequest, json, notFound, readJson } from '@/lib/benchmark/http';
@@ -22,7 +22,7 @@ function normalize(items: unknown): { text: string; intent: Intent }[] {
 }
 
 export const PUT: APIRoute = async ({ params, request }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
   const body = await readJson<{ questions?: unknown }>(request);
@@ -32,12 +32,12 @@ export const PUT: APIRoute = async ({ params, request }) => {
   if (questions.length === 0) return badRequest('至少保留一个问题');
   if (questions.length > MAX_QUESTIONS) return badRequest(`问题数量不能超过 ${MAX_QUESTIONS}`);
 
-  const saved = replaceQuestions(project.id, questions);
+  const saved = await replaceQuestions(project.id, questions);
   return json({ questions: saved });
 };
 
 export const POST: APIRoute = async ({ params, request }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
   const body = await readJson<QuestionInput>(request);
@@ -47,6 +47,6 @@ export const POST: APIRoute = async ({ params, request }) => {
   if (next.length === project.questions.length) return badRequest('问题内容为空');
   if (next.length > MAX_QUESTIONS) return badRequest(`问题数量不能超过 ${MAX_QUESTIONS}`);
 
-  const saved = replaceQuestions(project.id, next);
+  const saved = await replaceQuestions(project.id, next);
   return json({ questions: saved }, 201);
 };

@@ -12,12 +12,12 @@ import { asString, asStringArray, badRequest, json, notFound, readJson } from '@
 
 export const prerender = false;
 
-export const GET: APIRoute = ({ params }) => {
-  const project = getProject(params.id ?? '');
+export const GET: APIRoute = async ({ params }) => {
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
-  const runs = listRuns(project.id);
-  const observations = listObservations(project.id);
+  const runs = await listRuns(project.id);
+  const observations = await listObservations(project.id);
   const latestRun = runs[0];
   const latestObservations = latestRun
     ? observations.filter((observation) => observation.runId === latestRun.id)
@@ -44,13 +44,13 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   const body = await readJson<PatchBody>(request);
   if (!body) return badRequest('请求体必须是 JSON');
 
-  const existing = getProject(params.id ?? '');
+  const existing = await getProject(params.id ?? '');
   if (!existing) return notFound('项目不存在');
 
   const name = body.name === undefined ? undefined : asString(body.name);
   if (name !== undefined && !name) return badRequest('项目名称不能为空');
 
-  const updated = updateProject(existing.id, {
+  const updated = await updateProject(existing.id, {
     name,
     brand: body.brand === undefined ? undefined : asString(body.brand),
     site: body.site === undefined ? undefined : asString(body.site),
@@ -59,9 +59,9 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   return json({ project: updated });
 };
 
-export const DELETE: APIRoute = ({ params }) => {
-  const existing = getProject(params.id ?? '');
+export const DELETE: APIRoute = async ({ params }) => {
+  const existing = await getProject(params.id ?? '');
   if (!existing) return notFound('项目不存在');
-  deleteProject(existing.id);
+  await deleteProject(existing.id);
   return json({ deleted: true });
 };

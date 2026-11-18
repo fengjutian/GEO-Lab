@@ -11,14 +11,14 @@ function csvCell(value: string | number | boolean | null | undefined): string {
 }
 
 export const GET: APIRoute = ({ params, url }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
   const format = url.searchParams.get('format') === 'md' ? 'md' : 'csv';
   const runId = url.searchParams.get('runId') ?? undefined;
-  const runs = listRuns(project.id);
+  const runs = await listRuns(project.id);
   const run = runId ? runs.find((item) => item.id === runId) : runs[0];
-  const observations = listObservations(project.id, run?.id);
+  const observations = await listObservations(project.id, run?.id);
   const metrics = computeMetrics(project, observations, project.questions);
   const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 

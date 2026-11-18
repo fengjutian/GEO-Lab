@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
   const token = typeof body.token === 'string' ? body.token : request.headers.get('x-geo-token');
   if (!tokenMatches(token)) return corsJson({ error: '采集 token 不正确' }, 401);
 
-  const project = getProject(typeof body.projectId === 'string' ? body.projectId : '');
+  const project = await getProject(typeof body.projectId === 'string' ? body.projectId : '');
   if (!project) return corsJson({ error: '项目不存在' }, 404);
 
   const question = project.questions.find((item) => item.id === body.questionId);
@@ -59,12 +59,12 @@ export const POST: APIRoute = async ({ request }) => {
   const label = captureRunLabel(endpointLabel);
 
   // 同一天、同一端点标签复用同一个运行，避免每次点击都生成新批次。
-  const existing = listRuns(project.id).find(
+  const existing = await listRuns(project.id).find(
     (run) => run.label === label && run.provider === 'browser-capture',
   );
   const run =
     existing ??
-    createRun({
+    await createRun({
       projectId: project.id,
       label,
       provider: 'browser-capture',
@@ -77,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
   const brandMentioned = answer.toLowerCase().includes(project.brand.toLowerCase());
   const sourceUrl = typeof body.sourceUrl === 'string' ? body.sourceUrl.slice(0, 500) : '';
 
-  const observation = addObservation({
+  const observation = await addObservation({
     runId: run.id,
     projectId: project.id,
     questionId: question.id,

@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!tokenMatches(token)) return corsJson({ error: '采集 token 不正确' }, 401);
 
   const projectId = typeof body.projectId === 'string' ? body.projectId : '';
-  const project = getProject(projectId);
+  const project = await getProject(projectId);
   if (!project) return corsJson({ error: '项目不存在' }, 404);
 
   const answer = typeof body.answer === 'string' ? body.answer.trim() : '';

@@ -10,7 +10,7 @@ import { asString, badRequest, json, notFound, readJson } from '@/lib/benchmark/
 export const prerender = false;
 
 export const GET: APIRoute = ({ params, url }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
   const runId = url.searchParams.get('runId') ?? undefined;
   return json({ observations: listObservations(project.id, runId) });
@@ -26,7 +26,7 @@ type ObservationBody = {
 };
 
 export const POST: APIRoute = async ({ params, request }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
   const body = await readJson<ObservationBody>(request);
@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const runId = asString(body.runId);
   if (!runId) return badRequest('缺少 runId：手工记录必须挂在某次运行下');
-  const run = listRuns(project.id).find((item) => item.id === runId);
+  const run = await listRuns(project.id).find((item) => item.id === runId);
   if (!run) return badRequest('runId 不属于该项目');
 
   const answer = asString(body.answer);
@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       ? Math.max(1, Math.floor(body.brandPosition))
       : autoPosition;
 
-  const observation = addObservation({
+  const observation = await addObservation({
     runId,
     projectId: project.id,
     questionId: question.id,

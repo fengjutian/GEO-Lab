@@ -4,25 +4,28 @@ import { asString, asStringArray, badRequest, json, readJson } from '@/lib/bench
 import { seedDemoProject } from '@/lib/benchmark/demo';
 import { defaultQuestions } from '@/lib/benchmark/questions';
 import { replaceQuestions } from '@/lib/benchmark/db';
+import { storeInfo } from '@/lib/benchmark/store';
 
 export const prerender = false;
 
-export const GET: APIRoute = () => {
-  const projects = listProjects().map((project) => {
-    const runs = listRuns(project.id);
-    return {
-      id: project.id,
-      name: project.name,
-      brand: project.brand,
-      site: project.site,
-      isDemo: project.isDemo,
-      createdAt: project.createdAt,
-      questionCount: project.questions.length,
-      runCount: runs.length,
-      lastRunAt: runs[0]?.startedAt ?? null,
-    };
-  });
-  return json({ projects });
+export const GET: APIRoute = async () => {
+  const projects = await Promise.all(
+    (await listProjects()).map(async (project) => {
+      const runs = await listRuns(project.id);
+      return {
+        id: project.id,
+        name: project.name,
+        brand: project.brand,
+        site: project.site,
+        isDemo: project.isDemo,
+        createdAt: project.createdAt,
+        questionCount: project.questions.length,
+        runCount: runs.length,
+        lastRunAt: runs[0]?.startedAt ?? null,
+      };
+    }),
+  );
+  return json({ projects, store: storeInfo() });
 };
 
 type CreateBody = {
@@ -39,7 +42,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!body) return badRequest('请求体必须是 JSON');
 
   if (body.demo === true) {
-    const project = seedDemoProject();
+    const project = await seedDemoProject();
     return json({ project }, 201);
   }
 
@@ -54,12 +57,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (brand.length > 60) return badRequest('品牌名请控制在 60 字以内');
   if (site && !/^https?:\/\/[^\s]+$/.test(site)) return badRequest('站点需要以 http(s):// 开头的完整网址');
 
-  const project = createProject({ name, brand, site, competitors });
+  const created = await createProject({ name, brand, site, competitors });
 
   if (body.seedQuestions !== false) {
-    replaceQuestions(project.id, defaultQuestions({ brand, competitors }));
+    await replaceQuestions(created.id, defaultQuestions({ brand, competitors }));
   }
 
   // 重新读取：createProject 返回的是写入问题集之前的快照
-  return json({ project: getProject(project.id) ?? project }, 201);
+  return json({ project: (await getProject(created.id)) ?? created }, 201);
 };

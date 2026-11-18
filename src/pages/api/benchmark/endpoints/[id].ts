@@ -15,13 +15,13 @@ type Body = {
 };
 
 export const GET: APIRoute = ({ params }) => {
-  const endpoint = getEndpoint(params.id ?? '');
+  const endpoint = await getEndpoint(params.id ?? '');
   if (!endpoint) return notFound('端点不存在');
   return json({ endpoint: endpointStatus(endpoint) });
 };
 
 export const PATCH: APIRoute = async ({ params, request }) => {
-  const existing = getEndpoint(params.id ?? '');
+  const existing = await getEndpoint(params.id ?? '');
   if (!existing) return notFound('端点不存在');
 
   const body = await readJson<Body>(request);
@@ -41,7 +41,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   if (extraBody === null) return badRequest('extraBody 必须是 JSON 对象');
 
   try {
-    const updated = updateEndpoint(existing.id, {
+    const updated = await updateEndpoint(existing.id, {
       name: body.name === undefined ? undefined : asString(body.name),
       baseUrl,
       model: body.model === undefined ? undefined : asString(body.model),
@@ -59,8 +59,8 @@ export const PATCH: APIRoute = async ({ params, request }) => {
 };
 
 export const DELETE: APIRoute = ({ params }) => {
-  const existing = getEndpoint(params.id ?? '');
+  const existing = await getEndpoint(params.id ?? '');
   if (!existing) return notFound('端点不存在');
-  deleteEndpoint(existing.id);
+  await deleteEndpoint(existing.id);
   return json({ deleted: true });
 };

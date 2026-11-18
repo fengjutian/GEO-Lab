@@ -27,11 +27,11 @@ const MAX_REPEATS_PER_QUESTION = 3;
 const MAX_CALLS_PER_BATCH = 240;
 
 export const GET: APIRoute = ({ params }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
-  const runs = listRuns(project.id);
-  const observations = listObservations(project.id);
+  const runs = await listRuns(project.id);
+  const observations = await listObservations(project.id);
   return json({
     runs: runs.map((run) => ({
       ...run,
@@ -57,7 +57,7 @@ type EndpointSpec = {
 };
 
 export const POST: APIRoute = async ({ params, request }) => {
-  const project = getProject(params.id ?? '');
+  const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
   const body = (await readJson<RunBody>(request)) ?? {};
@@ -71,7 +71,7 @@ export const POST: APIRoute = async ({ params, request }) => {
         : `手工记录 ${stamp}`;
 
   if (mode === 'manual') {
-    const run = createRun({
+    const run = await createRun({
       projectId: project.id,
       label,
       provider: 'manual',
@@ -112,7 +112,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     const missing: string[] = [];
     const unknown: string[] = [];
     for (const id of requestedIds) {
-      const endpoint = getEndpoint(id);
+      const endpoint = await getEndpoint(id);
       if (!endpoint) {
         unknown.push(id);
         continue;
@@ -195,7 +195,7 @@ async function runSingleEndpoint(
   batchLabel: string,
   repeats: number,
 ): Promise<{ run: Run; success: number; failures: string[] }> {
-  const run = createRun({
+  const run = await createRun({
     projectId: project.id,
     label: batchLabel,
     provider: spec.providerName,
@@ -218,7 +218,7 @@ async function runSingleEndpoint(
       try {
         const result = await askModel(question.text, spec.config);
         resolvedModel = result.model;
-        addObservation({
+        await addObservation({
           runId: run.id,
           projectId: project.id,
           questionId: question.id,
@@ -243,7 +243,7 @@ async function runSingleEndpoint(
       ? `自动运行完成，成功 ${success} 条。端点 ${spec.name}，模型 ${resolvedModel}，温度 0，逐条串行请求${repeats > 1 ? `，每题重复 ${repeats} 次` : ''}。`
       : `成功 ${success} 条，失败 ${failures.length} 条。失败示例：${failures.slice(0, 3).join('；')}`;
 
-  finishRun(run.id, success === 0 ? 'failed' : 'completed', note);
-  const saved = listRuns(project.id).find((item) => item.id === run.id) ?? run;
+  await finishRun(run.id, success === 0 ? 'failed' : 'completed', note);
+  const saved = await listRuns(project.id).find((item) => item.id === run.id) ?? run;
   return { run: saved, success, failures };
 }

@@ -6,7 +6,7 @@ import { asString, badRequest, json, readJson } from '@/lib/benchmark/http';
 export const prerender = false;
 
 export const GET: APIRoute = () => {
-  const endpoints = listEndpoints();
+  const endpoints = await listEndpoints();
   return json({
     endpoints: listEndpointStatuses(endpoints),
     captureEnabled: Boolean((process.env.GEO_BENCHMARK_CAPTURE_TOKEN ?? '').trim()),
@@ -50,7 +50,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
-    const endpoint = createEndpoint({
+    const endpoint = await createEndpoint({
       name,
       baseUrl,
       model,

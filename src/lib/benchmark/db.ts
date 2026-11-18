@@ -1,118 +1,124 @@
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { getStore, type SqlValue } from './store';
 import type { Endpoint, Intent, Observation, Project, Question, Run, RunStatus } from './types';
 
 /**
- * 本地 SQLite 存储。刻意选择 node:sqlite（Node 22.5+ 内置）：
- * 不需要编译原生依赖，单文件数据库便于自托管与备份。
- * 数据库文件默认 data/benchmark.db，可用 GEO_BENCHMARK_DB 覆盖。
+ * 数据访问层。所有函数都是异步的：本地 SQLite 与远端 libSQL 共用同一套 SQL，
+ * 只有底层的执行方式不同（见 store.ts）。
  */
 
-let database: DatabaseSync | null = null;
-
-function dbPath(): string {
-  const configured = process.env.GEO_BENCHMARK_DB;
-  if (configured) return resolve(configured);
-  // Serverless（Netlify Function / AWS Lambda）里只有 /tmp 可写，部署包目录是只读的。
-  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY) return '/tmp/benchmark.db';
-  return resolve('data/benchmark.db');
-}
-
-export function getDb(): DatabaseSync {
-  if (database) return database;
-  const path = dbPath();
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
-  database = new DatabaseSync(path);
-  database.exec('PRAGMA journal_mode = WAL');
-  database.exec('PRAGMA foreign_keys = ON');
-  migrate(database);
-  return database;
-}
-
-function migrate(db: DatabaseSync) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS projects (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      brand TEXT NOT NULL,
-      site TEXT NOT NULL DEFAULT '',
-      competitors TEXT NOT NULL DEFAULT '[]',
-      is_demo INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS questions (
-      id TEXT PRIMARY KEY,
-      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      text TEXT NOT NULL,
-      intent TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS runs (
-      id TEXT PRIMARY KEY,
-      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      label TEXT NOT NULL,
-      provider TEXT NOT NULL,
-      model TEXT NOT NULL,
-      status TEXT NOT NULL,
-      started_at TEXT NOT NULL,
-      finished_at TEXT,
-      note TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS endpoints (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL UNIQUE,
-      base_url TEXT NOT NULL,
-      model TEXT NOT NULL,
-      api_key_env TEXT NOT NULL DEFAULT '',
-      extra_body TEXT NOT NULL DEFAULT '{}',
-      enabled INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS observations (
-      id TEXT PRIMARY KEY,
-      run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
-      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      question_id TEXT NOT NULL,
-      question_text TEXT NOT NULL,
-      answer TEXT NOT NULL,
-      citations TEXT NOT NULL DEFAULT '[]',
-      brand_mentioned INTEGER NOT NULL DEFAULT 0,
-      brand_position INTEGER,
-      competitor_mentions TEXT NOT NULL DEFAULT '{}',
-      mode TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_questions_project ON questions(project_id);
-    CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id);
-    CREATE INDEX IF NOT EXISTS idx_obs_run ON observations(run_id);
-    CREATE INDEX IF NOT EXISTS idx_obs_project ON observations(project_id);
-  `);
-
-  // 旧库增量迁移：对比运行需要 batch / endpoint 字段。
-  ensureColumn(db, 'runs', 'batch_id', 'TEXT');
-  ensureColumn(db, 'runs', 'endpoint_id', 'TEXT');
-  ensureColumn(db, 'runs', 'endpoint_name', 'TEXT');
-  // 重复观测：同一问题的第 n 次记录
-  ensureColumn(db, 'observations', 'repeat_index', 'INTEGER NOT NULL DEFAULT 1');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_runs_batch ON runs(batch_id)');
-}
-
-function ensureColumn(db: DatabaseSync, table: string, column: string, definition: string) {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  if (!columns.some((item) => item.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  }
-}
-
 const now = () => new Date().toISOString();
+
+/* ---------- 迁移 ---------- */
+
+const SCHEMA: string[] = [
+  `CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    brand TEXT NOT NULL,
+    site TEXT NOT NULL DEFAULT '',
+    competitors TEXT NOT NULL DEFAULT '[]',
+    is_demo INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS questions (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    intent TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    note TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS observations (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    question_id TEXT NOT NULL,
+    question_text TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    citations TEXT NOT NULL DEFAULT '[]',
+    brand_mentioned INTEGER NOT NULL DEFAULT 0,
+    brand_position INTEGER,
+    competitor_mentions TEXT NOT NULL DEFAULT '{}',
+    mode TEXT NOT NULL,
+    repeat_index INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS endpoints (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    base_url TEXT NOT NULL,
+    model TEXT NOT NULL,
+    api_key_env TEXT NOT NULL DEFAULT '',
+    extra_body TEXT NOT NULL DEFAULT '{}',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_questions_project ON questions(project_id)',
+  'CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id)',
+  'CREATE INDEX IF NOT EXISTS idx_runs_batch ON runs(batch_id)',
+  'CREATE INDEX IF NOT EXISTS idx_obs_run ON observations(run_id)',
+  'CREATE INDEX IF NOT EXISTS idx_obs_project ON observations(project_id)',
+];
+
+/** 旧库增量迁移：列不存在时补上（SQLite 与 libSQL 都支持 PRAGMA table_info）。 */
+const COLUMN_MIGRATIONS: { table: string; column: string; definition: string }[] = [
+  { table: 'runs', column: 'batch_id', definition: 'TEXT' },
+  { table: 'runs', column: 'endpoint_id', definition: 'TEXT' },
+  { table: 'runs', column: 'endpoint_name', definition: 'TEXT' },
+  { table: 'observations', column: 'repeat_index', definition: 'INTEGER NOT NULL DEFAULT 1' },
+];
+
+let migration: Promise<void> | null = null;
+
+async function ensureMigrated(): Promise<void> {
+  if (!migration) {
+    migration = (async () => {
+      const store = getStore();
+      for (const statement of SCHEMA) {
+        // 索引依赖后补的列：失败时留到列补齐后重建
+        try {
+          await store.run(statement);
+        } catch (error) {
+          if (!String((error as Error).message).includes('no such column')) throw error;
+        }
+      }
+      for (const item of COLUMN_MIGRATIONS) {
+        const columns = await store.all(`PRAGMA table_info(${item.table})`);
+        if (!columns.some((column) => column.name === item.column)) {
+          await store.run(`ALTER TABLE ${item.table} ADD COLUMN ${item.column} ${item.definition}`);
+        }
+      }
+      await store.run('CREATE INDEX IF NOT EXISTS idx_runs_batch ON runs(batch_id)');
+    })().catch((error) => {
+      migration = null;
+      throw error;
+    });
+  }
+  return migration;
+}
+
+/** 统一的查询入口：先确保表结构存在。 */
+async function all(sql: string, args: SqlValue[] = []) {
+  await ensureMigrated();
+  return getStore().all(sql, args);
+}
+
+async function run(sql: string, args: SqlValue[] = []) {
+  await ensureMigrated();
+  return getStore().run(sql, args);
+}
 
 /* ---------- 项目 ---------- */
 
@@ -141,79 +147,80 @@ function toProject(row: ProjectRow, questions: Question[]): Project {
   };
 }
 
-export function listProjects(): Project[] {
-  const db = getDb();
-  const rows = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as ProjectRow[];
-  return rows.map((row) => toProject(row, listQuestions(row.id)));
+export async function listProjects(): Promise<Project[]> {
+  const rows = (await all('SELECT * FROM projects ORDER BY created_at DESC')) as ProjectRow[];
+  return Promise.all(rows.map(async (row) => toProject(row, await listQuestions(row.id))));
 }
 
-export function getProject(id: string): Project | null {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+export async function getProject(id: string): Promise<Project | null> {
+  const row = (await all('SELECT * FROM projects WHERE id = ?', [id]))[0] as ProjectRow | undefined;
   if (!row) return null;
-  return toProject(row, listQuestions(id));
+  return toProject(row, await listQuestions(id));
 }
 
-export function createProject(input: {
+export async function createProject(input: {
   name: string;
   brand: string;
   site?: string;
   competitors?: string[];
   isDemo?: boolean;
-}): Project {
-  const db = getDb();
+}): Promise<Project> {
   const id = randomUUID();
   const timestamp = now();
-  db.prepare(
+  await run(
     'INSERT INTO projects (id, name, brand, site, competitors, is_demo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-  ).run(
-    id,
-    input.name,
-    input.brand,
-    input.site ?? '',
-    JSON.stringify(input.competitors ?? []),
-    input.isDemo ? 1 : 0,
-    timestamp,
-    timestamp,
+    [
+      id,
+      input.name,
+      input.brand,
+      input.site ?? '',
+      JSON.stringify(input.competitors ?? []),
+      input.isDemo ? 1 : 0,
+      timestamp,
+      timestamp,
+    ],
   );
-  return getProject(id)!;
+  return (await getProject(id))!;
 }
 
-export function updateProject(
+export async function updateProject(
   id: string,
   input: { name?: string; brand?: string; site?: string; competitors?: string[] },
-): Project | null {
-  const existing = getProject(id);
+): Promise<Project | null> {
+  const existing = await getProject(id);
   if (!existing) return null;
-  const db = getDb();
-  db.prepare(
+  await run(
     'UPDATE projects SET name = ?, brand = ?, site = ?, competitors = ?, updated_at = ? WHERE id = ?',
-  ).run(
-    input.name ?? existing.name,
-    input.brand ?? existing.brand,
-    input.site ?? existing.site,
-    JSON.stringify(input.competitors ?? existing.competitors),
-    now(),
-    id,
+    [
+      input.name ?? existing.name,
+      input.brand ?? existing.brand,
+      input.site ?? existing.site,
+      JSON.stringify(input.competitors ?? existing.competitors),
+      now(),
+      id,
+    ],
   );
   return getProject(id);
 }
 
-export function deleteProject(id: string): boolean {
-  const db = getDb();
-  const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
-  return Number(result.changes) > 0;
+export async function deleteProject(id: string): Promise<boolean> {
+  // 子表没有外键级联（远端 libSQL 默认关闭外键），这里显式清理
+  await run('DELETE FROM observations WHERE project_id = ?', [id]);
+  await run('DELETE FROM runs WHERE project_id = ?', [id]);
+  await run('DELETE FROM questions WHERE project_id = ?', [id]);
+  const result = await run('DELETE FROM projects WHERE id = ?', [id]);
+  return result.changes > 0;
 }
 
 /* ---------- 问题集 ---------- */
 
 type QuestionRow = { id: string; text: string; intent: string; created_at: string };
 
-export function listQuestions(projectId: string): Question[] {
-  const db = getDb();
-  const rows = db
-    .prepare('SELECT * FROM questions WHERE project_id = ? ORDER BY created_at ASC')
-    .all(projectId) as QuestionRow[];
+export async function listQuestions(projectId: string): Promise<Question[]> {
+  const rows = (await all(
+    'SELECT * FROM questions WHERE project_id = ? ORDER BY created_at ASC, rowid ASC',
+    [projectId],
+  )) as QuestionRow[];
   return rows.map((row) => ({
     id: row.id,
     text: row.text,
@@ -222,20 +229,19 @@ export function listQuestions(projectId: string): Question[] {
   }));
 }
 
-export function replaceQuestions(
+export async function replaceQuestions(
   projectId: string,
   questions: { text: string; intent: Intent }[],
-): Question[] {
-  const db = getDb();
-  db.prepare('DELETE FROM questions WHERE project_id = ?').run(projectId);
-  const insert = db.prepare(
-    'INSERT INTO questions (id, project_id, text, intent, created_at) VALUES (?, ?, ?, ?, ?)',
-  );
+): Promise<Question[]> {
+  await run('DELETE FROM questions WHERE project_id = ?', [projectId]);
   const timestamp = now();
   for (const question of questions) {
-    insert.run(randomUUID(), projectId, question.text.trim(), question.intent, timestamp);
+    await run(
+      'INSERT INTO questions (id, project_id, text, intent, created_at) VALUES (?, ?, ?, ?, ?)',
+      [randomUUID(), projectId, question.text.trim(), question.intent, timestamp],
+    );
   }
-  db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(timestamp, projectId);
+  await run('UPDATE projects SET updated_at = ? WHERE id = ?', [timestamp, projectId]);
   return listQuestions(projectId);
 }
 
@@ -273,22 +279,21 @@ function toRun(row: RunRow): Run {
   };
 }
 
-export function listRuns(projectId: string): Run[] {
-  const db = getDb();
-  const rows = db
+export async function listRuns(projectId: string): Promise<Run[]> {
+  const rows = (await all(
     // 同一秒内创建的多条运行按插入顺序倒序，保证“最新运行”稳定可预期
-    .prepare('SELECT * FROM runs WHERE project_id = ? ORDER BY started_at DESC, rowid DESC')
-    .all(projectId) as RunRow[];
+    'SELECT * FROM runs WHERE project_id = ? ORDER BY started_at DESC, rowid DESC',
+    [projectId],
+  )) as RunRow[];
   return rows.map(toRun);
 }
 
-export function getRun(id: string): Run | null {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(id) as RunRow | undefined;
+export async function getRun(id: string): Promise<Run | null> {
+  const row = (await all('SELECT * FROM runs WHERE id = ?', [id]))[0] as RunRow | undefined;
   return row ? toRun(row) : null;
 }
 
-export function createRun(input: {
+export async function createRun(input: {
   projectId: string;
   label: string;
   provider: string;
@@ -298,38 +303,37 @@ export function createRun(input: {
   batchId?: string | null;
   endpointId?: string | null;
   endpointName?: string | null;
-}): Run {
-  const db = getDb();
+}): Promise<Run> {
   const id = randomUUID();
-  db.prepare(
+  await run(
     `INSERT INTO runs
       (id, project_id, label, provider, model, status, started_at, finished_at, note, batch_id, endpoint_id, endpoint_name)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.projectId,
-    input.label,
-    input.provider,
-    input.model,
-    input.status,
-    now(),
-    input.status === 'running' ? null : now(),
-    input.note ?? null,
-    input.batchId ?? null,
-    input.endpointId ?? null,
-    input.endpointName ?? null,
+    [
+      id,
+      input.projectId,
+      input.label,
+      input.provider,
+      input.model,
+      input.status,
+      now(),
+      input.status === 'running' ? null : now(),
+      input.note ?? null,
+      input.batchId ?? null,
+      input.endpointId ?? null,
+      input.endpointName ?? null,
+    ],
   );
-  return getRun(id)!;
+  return (await getRun(id))!;
 }
 
-export function finishRun(id: string, status: RunStatus, note?: string) {
-  const db = getDb();
-  db.prepare('UPDATE runs SET status = ?, finished_at = ?, note = ? WHERE id = ?').run(
+export async function finishRun(id: string, status: RunStatus, note?: string): Promise<void> {
+  await run('UPDATE runs SET status = ?, finished_at = ?, note = ? WHERE id = ?', [
     status,
     now(),
     note ?? null,
     id,
-  );
+  ]);
 }
 
 /* ---------- 观测记录 ---------- */
@@ -368,7 +372,7 @@ function toObservation(row: ObservationRow): Observation {
   };
 }
 
-export function addObservation(input: {
+export async function addObservation(input: {
   runId: string;
   projectId: string;
   questionId: string;
@@ -380,54 +384,56 @@ export function addObservation(input: {
   competitorMentions?: Record<string, boolean>;
   mode: 'auto' | 'manual';
   repeatIndex?: number;
-}): Observation {
-  const db = getDb();
+}): Promise<Observation> {
   const id = randomUUID();
-  db.prepare(
+  await run(
     `INSERT INTO observations
       (id, run_id, project_id, question_id, question_text, answer, citations, brand_mentioned, brand_position, competitor_mentions, mode, repeat_index, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.runId,
-    input.projectId,
-    input.questionId,
-    input.questionText,
-    input.answer,
-    JSON.stringify(input.citations ?? []),
-    input.brandMentioned ? 1 : 0,
-    input.brandPosition ?? null,
-    JSON.stringify(input.competitorMentions ?? {}),
-    input.mode,
-    Math.max(1, input.repeatIndex ?? 1),
-    now(),
+    [
+      id,
+      input.runId,
+      input.projectId,
+      input.questionId,
+      input.questionText,
+      input.answer,
+      JSON.stringify(input.citations ?? []),
+      input.brandMentioned ? 1 : 0,
+      input.brandPosition ?? null,
+      JSON.stringify(input.competitorMentions ?? {}),
+      input.mode,
+      Math.max(1, input.repeatIndex ?? 1),
+      now(),
+    ],
   );
-  const row = db.prepare('SELECT * FROM observations WHERE id = ?').get(id) as ObservationRow;
+  const row = (await all('SELECT * FROM observations WHERE id = ?', [id]))[0] as ObservationRow;
   return toObservation(row);
 }
 
-export function listObservations(projectId: string, runId?: string): Observation[] {
-  const db = getDb();
+export async function listObservations(projectId: string, runId?: string): Promise<Observation[]> {
   const rows = runId
-    ? (db
-        .prepare('SELECT * FROM observations WHERE project_id = ? AND run_id = ? ORDER BY created_at ASC')
-        .all(projectId, runId) as ObservationRow[])
-    : (db
-        .prepare('SELECT * FROM observations WHERE project_id = ? ORDER BY created_at ASC')
-        .all(projectId) as ObservationRow[]);
+    ? ((await all(
+        'SELECT * FROM observations WHERE project_id = ? AND run_id = ? ORDER BY created_at ASC, rowid ASC',
+        [projectId, runId],
+      )) as ObservationRow[])
+    : ((await all(
+        'SELECT * FROM observations WHERE project_id = ? ORDER BY created_at ASC, rowid ASC',
+        [projectId],
+      )) as ObservationRow[]);
   return rows.map(toObservation);
 }
 
-export function deleteObservation(id: string): boolean {
-  const db = getDb();
-  const result = db.prepare('DELETE FROM observations WHERE id = ?').run(id);
-  return Number(result.changes) > 0;
+export async function deleteObservation(id: string): Promise<boolean> {
+  const result = await run('DELETE FROM observations WHERE id = ?', [id]);
+  return result.changes > 0;
 }
 
-/** 测试用：整体清空。仅在 GEO_BENCHMARK_ALLOW_RESET=1 时开放接口。 */
-export function resetDatabase() {
-  const db = getDb();
-  db.exec('DELETE FROM observations; DELETE FROM runs; DELETE FROM questions; DELETE FROM projects;');
+/** 测试用：整体清空。 */
+export async function resetDatabase(): Promise<void> {
+  await run('DELETE FROM observations');
+  await run('DELETE FROM runs');
+  await run('DELETE FROM questions');
+  await run('DELETE FROM projects');
 }
 
 /* ---------- 端点配置 ---------- */
@@ -456,55 +462,50 @@ function toEndpoint(row: EndpointRow): Endpoint {
   };
 }
 
-export function listEndpoints(): Endpoint[] {
-  const db = getDb();
-  const rows = db
-    .prepare('SELECT * FROM endpoints ORDER BY created_at ASC')
-    .all() as EndpointRow[];
+export async function listEndpoints(): Promise<Endpoint[]> {
+  const rows = (await all('SELECT * FROM endpoints ORDER BY created_at ASC, rowid ASC')) as EndpointRow[];
   return rows.map(toEndpoint);
 }
 
-export function getEndpoint(id: string): Endpoint | null {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM endpoints WHERE id = ?').get(id) as EndpointRow | undefined;
+export async function getEndpoint(id: string): Promise<Endpoint | null> {
+  const row = (await all('SELECT * FROM endpoints WHERE id = ?', [id]))[0] as EndpointRow | undefined;
   return row ? toEndpoint(row) : null;
 }
 
-export function findEndpointByName(name: string): Endpoint | null {
-  const db = getDb();
-  const row = db
-    .prepare('SELECT * FROM endpoints WHERE name = ?')
-    .get(name) as EndpointRow | undefined;
+export async function findEndpointByName(name: string): Promise<Endpoint | null> {
+  const row = (await all('SELECT * FROM endpoints WHERE name = ?', [name]))[0] as
+    | EndpointRow
+    | undefined;
   return row ? toEndpoint(row) : null;
 }
 
-export function createEndpoint(input: {
+export async function createEndpoint(input: {
   name: string;
   baseUrl: string;
   model: string;
   apiKeyEnv?: string;
   extraBody?: Record<string, unknown>;
   enabled?: boolean;
-}): Endpoint {
-  const db = getDb();
+}): Promise<Endpoint> {
   const id = randomUUID();
-  db.prepare(
+  await run(
     `INSERT INTO endpoints (id, name, base_url, model, api_key_env, extra_body, enabled, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.name,
-    input.baseUrl,
-    input.model,
-    input.apiKeyEnv ?? '',
-    JSON.stringify(input.extraBody ?? {}),
-    input.enabled === false ? 0 : 1,
-    now(),
+    [
+      id,
+      input.name,
+      input.baseUrl,
+      input.model,
+      input.apiKeyEnv ?? '',
+      JSON.stringify(input.extraBody ?? {}),
+      input.enabled === false ? 0 : 1,
+      now(),
+    ],
   );
-  return getEndpoint(id)!;
+  return (await getEndpoint(id))!;
 }
 
-export function updateEndpoint(
+export async function updateEndpoint(
   id: string,
   input: {
     name?: string;
@@ -514,26 +515,25 @@ export function updateEndpoint(
     extraBody?: Record<string, unknown>;
     enabled?: boolean;
   },
-): Endpoint | null {
-  const existing = getEndpoint(id);
+): Promise<Endpoint | null> {
+  const existing = await getEndpoint(id);
   if (!existing) return null;
-  const db = getDb();
-  db.prepare(
+  await run(
     'UPDATE endpoints SET name = ?, base_url = ?, model = ?, api_key_env = ?, extra_body = ?, enabled = ? WHERE id = ?',
-  ).run(
-    input.name ?? existing.name,
-    input.baseUrl ?? existing.baseUrl,
-    input.model ?? existing.model,
-    input.apiKeyEnv ?? existing.apiKeyEnv,
-    JSON.stringify(input.extraBody ?? existing.extraBody),
-    (input.enabled ?? existing.enabled) ? 1 : 0,
-    id,
+    [
+      input.name ?? existing.name,
+      input.baseUrl ?? existing.baseUrl,
+      input.model ?? existing.model,
+      input.apiKeyEnv ?? existing.apiKeyEnv,
+      JSON.stringify(input.extraBody ?? existing.extraBody),
+      (input.enabled ?? existing.enabled) ? 1 : 0,
+      id,
+    ],
   );
   return getEndpoint(id);
 }
 
-export function deleteEndpoint(id: string): boolean {
-  const db = getDb();
-  const result = db.prepare('DELETE FROM endpoints WHERE id = ?').run(id);
-  return Number(result.changes) > 0;
+export async function deleteEndpoint(id: string): Promise<boolean> {
+  const result = await run('DELETE FROM endpoints WHERE id = ?', [id]);
+  return result.changes > 0;
 }
