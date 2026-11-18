@@ -9,7 +9,7 @@ import { asString, badRequest, json, notFound, readJson } from '@/lib/benchmark/
 
 export const prerender = false;
 
-export const GET: APIRoute = ({ params, url }) => {
+export const GET: APIRoute = async ({ params, url }) => {
   const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
   const runId = url.searchParams.get('runId') ?? undefined;
@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const runId = asString(body.runId);
   if (!runId) return badRequest('缺少 runId：手工记录必须挂在某次运行下');
-  const run = await listRuns(project.id).find((item) => item.id === runId);
+  const run = (await listRuns(project.id)).find((item) => item.id === runId);
   if (!run) return badRequest('runId 不属于该项目');
 
   const answer = asString(body.answer);

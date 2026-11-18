@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro';
+﻿import type { APIRoute } from 'astro';
 import { deleteEndpoint, getEndpoint, updateEndpoint } from '@/lib/benchmark/db';
 import { endpointStatus } from '@/lib/benchmark/endpoints';
 import { asString, badRequest, json, notFound, readJson } from '@/lib/benchmark/http';
@@ -14,7 +14,7 @@ type Body = {
   enabled?: unknown;
 };
 
-export const GET: APIRoute = ({ params }) => {
+export const GET: APIRoute = async ({ params }) => {
   const endpoint = await getEndpoint(params.id ?? '');
   if (!endpoint) return notFound('端点不存在');
   return json({ endpoint: endpointStatus(endpoint) });
@@ -58,7 +58,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   }
 };
 
-export const DELETE: APIRoute = ({ params }) => {
+export const DELETE: APIRoute = async ({ params }) => {
   const existing = await getEndpoint(params.id ?? '');
   if (!existing) return notFound('端点不存在');
   await deleteEndpoint(existing.id);

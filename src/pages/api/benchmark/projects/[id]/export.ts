@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro';
+﻿import type { APIRoute } from 'astro';
 import { getProject, listObservations, listRuns } from '@/lib/benchmark/db';
 import { computeMetrics } from '@/lib/benchmark/metrics';
 import { notFound } from '@/lib/benchmark/http';
@@ -10,7 +10,7 @@ function csvCell(value: string | number | boolean | null | undefined): string {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
-export const GET: APIRoute = ({ params, url }) => {
+export const GET: APIRoute = async ({ params, url }) => {
   const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 

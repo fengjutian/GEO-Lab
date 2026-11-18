@@ -1,10 +1,10 @@
-import type { APIRoute } from 'astro';
+﻿import type { APIRoute } from 'astro';
 import { deleteObservation, getProject } from '@/lib/benchmark/db';
 import { json, notFound } from '@/lib/benchmark/http';
 
 export const prerender = false;
 
-export const DELETE: APIRoute = ({ params }) => {
+export const DELETE: APIRoute = async ({ params }) => {
   const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
   const removed = deleteObservation(params.obsId ?? '');

@@ -59,7 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
   const label = captureRunLabel(endpointLabel);
 
   // 同一天、同一端点标签复用同一个运行，避免每次点击都生成新批次。
-  const existing = await listRuns(project.id).find(
+  const existing = (await listRuns(project.id)).find(
     (run) => run.label === label && run.provider === 'browser-capture',
   );
   const run =

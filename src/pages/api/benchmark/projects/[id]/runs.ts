@@ -26,7 +26,7 @@ const MAX_REPEATS_PER_QUESTION = 3;
 /** 一批最多发起多少次模型调用，避免误操作产生巨额账单。 */
 const MAX_CALLS_PER_BATCH = 240;
 
-export const GET: APIRoute = ({ params }) => {
+export const GET: APIRoute = async ({ params }) => {
   const project = await getProject(params.id ?? '');
   if (!project) return notFound('项目不存在');
 
@@ -244,6 +244,6 @@ async function runSingleEndpoint(
       : `成功 ${success} 条，失败 ${failures.length} 条。失败示例：${failures.slice(0, 3).join('；')}`;
 
   await finishRun(run.id, success === 0 ? 'failed' : 'completed', note);
-  const saved = await listRuns(project.id).find((item) => item.id === run.id) ?? run;
+  const saved = (await listRuns(project.id)).find((item) => item.id === run.id) ?? run;
   return { run: saved, success, failures };
 }

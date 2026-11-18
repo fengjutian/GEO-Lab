@@ -1,11 +1,11 @@
-import type { APIRoute } from 'astro';
+﻿import type { APIRoute } from 'astro';
 import { createEndpoint, listEndpoints } from '@/lib/benchmark/db';
 import { listEndpointStatuses } from '@/lib/benchmark/endpoints';
 import { asString, badRequest, json, readJson } from '@/lib/benchmark/http';
 
 export const prerender = false;
 
-export const GET: APIRoute = () => {
+export const GET: APIRoute = async () => {
   const endpoints = await listEndpoints();
   return json({
     endpoints: listEndpointStatuses(endpoints),
